@@ -3728,7 +3728,29 @@ function svgToPng(svgElem, scale) {
             const ctx = canvas.getContext('2d');
             ctx.scale(scale, scale);
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/png'));
+            
+            const isIndexed = document.getElementById('s-export-indexed')?.checked;
+            if (isIndexed && typeof UPNG !== 'undefined') {
+                try {
+                    const colorsStr = document.getElementById('s-export-colors')?.value;
+                    const numColors = parseInt(colorsStr) || 32;
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Encode raw RGBA into PNG-8 using UPNG with median-cut quantization & pako zip (synchronously runs fast enough for 800-2000px canvasses)
+                    const pngBuffer = UPNG.encode([imgData.data.buffer], canvas.width, canvas.height, numColors);
+                    
+                    const blob = new Blob([pngBuffer], { type: 'image/png' });
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(canvas.toDataURL('image/png'));
+                    reader.readAsDataURL(blob);
+                } catch(e) {
+                    console.error("UPNG Optimization Error:", e);
+                    resolve(canvas.toDataURL('image/png'));
+                }
+            } else {
+                resolve(canvas.toDataURL('image/png'));
+            }
         };
         img.onerror = (e) => { reject(e); };
         img.src = dataUrl;

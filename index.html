@@ -8,6 +8,8 @@
     <script src="lib/mammoth.min.js"></script>
     <script src="lib/html2canvas.min.js"></script>
     <script src="lib/jszip.min.js"></script>
+    <script src="lib/pako.min.js"></script>
+    <script src="lib/UPNG.js"></script>
 
 </head>
 <body>
@@ -259,6 +261,19 @@
                         </label>
                         <label>Alto sombra (px)
                             <input type="number" id="s-card-shadow-h" value="12" min="0" max="30" step="2">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- EXPORTACIÓN -->
+                <details open>
+                    <summary><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportación Avanzada</summary>
+                    <div class="setting-group">
+                        <label title="Convierte el PNG a 8-bit con paleta limitada para máxima compresión. Preserva transparencia.">PNG Optimizado (8-bit)
+                            <input type="checkbox" id="s-export-indexed" checked>
+                        </label>
+                        <label id="export-colors-wrapper" title="Cantidad máxima de colores en la paleta. Menos colores reduce drásticamente el peso, ideal para gráficos planos.">Paleta de Colores (2-256)
+                            <input type="number" id="s-export-colors" value="32" min="2" max="256" step="1">
                         </label>
                     </div>
                 </details>
