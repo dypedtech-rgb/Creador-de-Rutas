@@ -1284,15 +1284,18 @@ class SVGRenderer {
         
         const textX = x + this.dims.pad;
         
-        // Vertical cursor — tracks the TOP of the current text line slot
-        let curY = y + this.dims.pad;
+        // ── Phase 1: Measure total text content height ──
+        // We render text starting at y=0, then shift everything to center vertically
+        let contentH = 0;
         let textSVG = '';
+        let curY = 0; // relative Y (starts at 0, will be offset later)
         
-        // Helper: add a <text> element centered vertically in a line slot of height `fontSize * LH`
+        // Helper: add a <text> element centered vertically in a line slot
         const addText = (tx, fontSize, weight, content, extras = '') => {
             const slotH = fontSize * LH;
-            const centerY = curY + slotH / 2;  // vertical center of the slot
+            const centerY = curY + slotH / 2;
             textSVG += `<text x="${tx}" y="${centerY}" font-family="${nodeFont}" font-size="${fontSize}" fill="${this.colors.text}" font-weight="${weight}" dominant-baseline="central"${extras}>${italicizeSvgText(content)}</text>`;
+            curY += slotH;
             return slotH;
         };
         
@@ -1310,7 +1313,6 @@ class SVGRenderer {
         } else {
             if (showTitle) {
                 if (hasRichTitle) {
-                    // Rich text path for title
                     const segments = parseHtmlToSegments(nodeData.richTitle);
                     const maxW = actualWidth - this.dims.pad * 2;
                     const codeOffset = code ? (this.measureText(code, codeSize || this.fonts.code, '300') + 8) : 0;
@@ -1328,7 +1330,6 @@ class SVGRenderer {
                         curY += result.height;
                     }
                 } else {
-                    // Original plain text path
                     if (code) {
                         let codeW = this.measureText(code, codeSize, '300') + 8;
                         const lineSize = Math.max(codeSize, nodeTitleSize);
@@ -1364,16 +1365,23 @@ class SVGRenderer {
             }
         }
 
-        // Symmetrical bottom padding
-        const boxH = curY - y + this.dims.pad;
+        // ── Phase 2: Calculate box height & vertical centering offset ──
+        contentH = curY;
+        const minBoxH = contentH + this.dims.pad * 2;
+        const boxH = Math.max(minBoxH, height || 0);
+        
+        // Offset to vertically center content within the box
+        const textOffsetY = y + (boxH - contentH) / 2;
 
         // Escape text for the onclick handler
         const safeData = nodeData ? encodeURIComponent(JSON.stringify(nodeData)) : '{}';
         
-        // Wrap everything in an interactive group with data-attribute for delegated click
+        // Wrap everything in an interactive group with centering transform
         let gStr = `<g class="interactive-node" style="cursor: pointer;" data-node-id="${id}">`;
         gStr += `<rect x="${x}" y="${y}" width="${actualWidth}" height="${boxH}" rx="${this.dims.br}" fill="${actualBg}" stroke="${borderColor}" stroke-width="${this.dims.bw}" />`;
+        gStr += `<g transform="translate(0, ${textOffsetY})">`;
         gStr += textSVG;
+        gStr += `</g>`;
         gStr += `</g>`;
 
         this.nodesStr += gStr;
@@ -1381,6 +1389,7 @@ class SVGRenderer {
         this.boxes[id] = { x, y, w: actualWidth, h: boxH, r: x + actualWidth, b: y + boxH, cx: x + actualWidth/2, cy: y + boxH/2 };
         return boxH;
     }
+
 
 
     drawPath(dStr, tipX, tipY) {
