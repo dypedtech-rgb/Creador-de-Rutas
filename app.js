@@ -2847,14 +2847,12 @@ function renderStructurePanelPaginaInicio() {
     </div>`;
 
     // Course title card
-    const safeTitle = (d.customTitle || d.title || '').replace(/"/g, '&quot;');
+    const courseTitle = d.customTitle || d.title || '';
     html += `<div class="structure-group">
         <div class="structure-card" data-id="course_title">
             <div class="structure-group-title">Título de Asignatura</div>
             <div class="card-collapsible-body">
-                <div class="field-row">
-                    <input type="text" class="live-edit-pi-course-title" value="${safeTitle}" placeholder="Nombre de asignatura...">
-                </div>
+                ${createRichFieldHTML('pi-course-title', d.richCourseTitle || courseTitle, { placeholder: 'Nombre de asignatura...', font: val('s-font-family'), size: val('s-hito-font') })}
             </div>
         </div>
     </div>`;
@@ -2954,13 +2952,26 @@ function bindPaginaInicioPanelEvents() {
     if (!list || !currentDiagramData) return;
     const d = currentDiagramData.diagram;
 
-    // Course title
-    const courseTitleInput = list.querySelector('.live-edit-pi-course-title');
-    if (courseTitleInput) {
-        courseTitleInput.addEventListener('input', (e) => {
-            d.customTitle = e.target.value;
-            renderDiagram(currentDiagramData, false);
-        });
+    // Course title - rich text
+    const courseTitleField = list.querySelector('[data-field-id="pi-course-title"]');
+    if (courseTitleField) {
+        bindRichTextEvents(courseTitleField.closest('.structure-card'), (fieldId) => {
+            if (fieldId === 'pi-course-title') {
+                return { node: d, fieldKey: 'title', 
+                    // Override _onRichChange behavior for course title
+                };
+            }
+            return null;
+        }, () => renderDiagram(currentDiagramData, false));
+        // Also bind the editor directly for course title special handling
+        const editor = courseTitleField.querySelector('.rich-editor');
+        if (editor) {
+            editor.addEventListener('input', () => {
+                d.richCourseTitle = editor.innerHTML;
+                d.customTitle = editor.textContent;
+                renderDiagram(currentDiagramData, false);
+            });
+        }
     }
 
     // ── Rich Text Events for PI hito fields ──
