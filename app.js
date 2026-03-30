@@ -999,7 +999,7 @@ const DragManager = {
             const g = e.target.closest('.interactive-node');
             if (!g) {
                 // Click on empty space: clear selection
-                if (!e.ctrlKey && !e.metaKey) this.clearSelection(container);
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) this.clearSelection(container);
                 
                 // Start Lasso
                 isLassoing = true;
@@ -1018,14 +1018,35 @@ const DragManager = {
             const nodeId = g.getAttribute('data-node-id');
             if (!nodeId) return;
 
-            // Ctrl+click: toggle selection without starting drag
-            if (e.ctrlKey || e.metaKey) {
+            // Ctrl+click or Shift+click: toggle selection without starting drag immediately
+            if (e.ctrlKey || e.metaKey || e.shiftKey) {
                 e.preventDefault();
                 this.toggleSelect(nodeId, g);
+                
+                // Set as dragNode to allow moving multiple from here
+                this.dragNode = g;
+                this.isDragging = true;
+                this.hasMoved = false;
+                this.axisLock = null;
+                const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
+                this.startMouseX = svgPt.x;
+                this.startMouseY = svgPt.y;
+
+                // Save starting offsets for all selected nodes
+                this.startOffsets = {};
+                this.selectedNodes.forEach(id => {
+                    const target = this.resolveTarget(id);
+                    if (target) {
+                        this.startOffsets[id] = {
+                            x: target.obj[target.ox] || 0,
+                            y: target.obj[target.oy] || 0,
+                        };
+                    }
+                });
                 return;
             }
 
-            // Start drag
+            // Normal click: Start drag only for this node and clear others
             e.preventDefault();
             this.isDragging = true;
             this.hasMoved = false;
@@ -1237,12 +1258,6 @@ const DragManager = {
                 if (nodeId) window.openNodeEditor(nodeId);
                 return;
             }
-
-            // Snap to grid
-            const snapEl = document.getElementById('s-snap-grid');
-            const snapGrid = (snapEl && snapEl.checked) ? this.SNAP_GRID : 1;
-            dx = Math.round(dx / snapGrid) * snapGrid;
-            dy = Math.round(dy / snapGrid) * snapGrid;
 
             // Save state for Undo before mutating
             UndoManager.saveState();
@@ -1712,7 +1727,7 @@ class SVGRenderer {
 
         if (isHito) {
             actualWidth = this.measureText(titleLines[0], nodeTitleSize, '800') * 1.05 + (this.dims.pad * 2);
-            curY += addText(textX, nodeTitleSize, '800', titleLines[0]);
+            curY += addText(textX, nodeTitleSize, '800', titleLines[0], ' dy="0.1em"');
         } else {
             if (showTitle) {
                 if (hasRichTitle) {
@@ -2081,7 +2096,7 @@ class PaginaInicioRenderer {
 
         nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="course_title">`;
         nodesStr += `<rect x="${headerX}" y="${headerY}" width="${headerW}" height="${headerH}" rx="${this.dims.br}" fill="${this.colors.orange}" />`;
-        nodesStr += `<text x="${headerX + this.dims.pad}" y="${headerCenterY}" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
+        nodesStr += `<text x="${headerX + this.dims.pad}" y="${headerCenterY}" dy="0.1em" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
         nodesStr += `</g>`;
 
         const headerBox = { x: headerX, y: headerY, w: headerW, h: headerH, b: headerY + headerH };
@@ -2154,7 +2169,7 @@ class PaginaInicioRenderer {
                 } else {
                     const titleSlot = nodeTitleSize * LH;
                     const titleCY = hitoCurY + titleSlot / 2;
-                    hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${titleCY}" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${hitoNum}</text>`;
+                    hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${titleCY}" dy="0.1em" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${hitoNum}</text>`;
                     hitoCurY += titleSlot;
                 }
             }
@@ -2393,7 +2408,7 @@ class TarjetaRenderer {
 
         // ── Header text: "Hito N" ──
         const titleFontSize = parseInt(val('s-card-title-font')) || 60;
-        svg += `<text x="${W / 2}" y="${headerBottom / 2}" font-family="${this.font}" font-size="${titleFontSize}" fill="${this.colors.white}" font-weight="700" text-anchor="middle" dominant-baseline="central">${this.escapeXml(hitoTitle)}</text>`;
+        svg += `<text x="${W / 2}" y="${headerBottom / 2}" dy="0.1em" font-family="${this.font}" font-size="${titleFontSize}" fill="${this.colors.white}" font-weight="700" text-anchor="middle" dominant-baseline="central">${this.escapeXml(hitoTitle)}</text>`;
 
         // ── Body text (SVG text) ──
         const bodyLH = parseFloat(val('s-card-body-lh')) || 1.35;
