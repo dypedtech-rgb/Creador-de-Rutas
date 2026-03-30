@@ -875,6 +875,219 @@ function isEnglishWord(word) {
 }
 
 /* ========================================================================
+   SVG DRAG & DROP MODULE
+   Supports: single drag, Shift+constrain axis, Ctrl+multi-select, group drag
+   ======================================================================== */
+const DragManager = {
+    selectedNodes: new Set(),
+    isDragging: false,
+    dragNode: null,
+    startMouseX: 0, startMouseY: 0,
+    startOffsets: {},    // { nodeId: { x, y } } - starting custom offsets
+    axisLock: null,      // 'x' or 'y' when Shift is held
+    hasMoved: false,     // distinguish click vs drag
+    SNAP_GRID: 10,
+
+    /** Convert screen point to SVG coordinate space */
+    screenToSVG(svg, screenX, screenY) {
+        const pt = svg.createSVGPoint();
+        pt.x = screenX;
+        pt.y = screenY;
+        const ctm = svg.getScreenCTM().inverse();
+        return pt.matrixTransform(ctm);
+    },
+
+    /** Find the target object and keys to store offsets */
+    resolveTarget(id) {
+        if (!currentDiagramData) return null;
+        const d = currentDiagramData.diagram;
+        
+        if (id === 'course_title') {
+            return { obj: d, ox: 'customOffsetX', oy: 'customOffsetY' };
+        }
+
+        let isSub = false;
+        let searchId = id;
+        if (id.endsWith('_sub')) {
+            isSub = true;
+            searchId = id.replace(/_sub$/, '');
+        }
+
+        function search(nodes) {
+            for (const n of nodes) {
+                if (n.id === searchId) return n;
+                if (n.children) {
+                    const found = search(n.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+        
+        const node = search(d.nodes || []);
+        if (node) {
+            return { 
+                obj: node, 
+                ox: isSub ? 'customSubOffsetX' : 'customOffsetX', 
+                oy: isSub ? 'customSubOffsetY' : 'customOffsetY' 
+            };
+        }
+        return null;
+    },
+
+    /** Toggle selection of a node (Ctrl+click) */
+    toggleSelect(nodeId, gEl) {
+        if (this.selectedNodes.has(nodeId)) {
+            this.selectedNodes.delete(nodeId);
+            gEl.classList.remove('drag-selected');
+        } else {
+            this.selectedNodes.add(nodeId);
+            gEl.classList.add('drag-selected');
+        }
+    },
+
+    /** Clear all selections */
+    clearSelection(container) {
+        this.selectedNodes.clear();
+        if (container) {
+            container.querySelectorAll('.drag-selected').forEach(el => el.classList.remove('drag-selected'));
+        }
+    },
+
+    /** Initialize drag handlers on the SVG container */
+    init(container) {
+        const svg = container.querySelector('svg');
+        if (!svg) return;
+
+        // Style: move cursor on interactive nodes
+        svg.querySelectorAll('.interactive-node').forEach(g => {
+            g.style.cursor = 'move';
+        });
+
+        svg.addEventListener('mousedown', (e) => {
+            const g = e.target.closest('.interactive-node');
+            if (!g) {
+                // Click on empty space: clear selection
+                if (!e.ctrlKey && !e.metaKey) this.clearSelection(container);
+                return;
+            }
+
+            const nodeId = g.getAttribute('data-node-id');
+            if (!nodeId) return;
+
+            // Ctrl+click: toggle selection without starting drag
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                this.toggleSelect(nodeId, g);
+                return;
+            }
+
+            // Start drag
+            e.preventDefault();
+            this.isDragging = true;
+            this.hasMoved = false;
+            this.axisLock = null;
+            this.dragNode = g;
+
+            const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
+            this.startMouseX = svgPt.x;
+            this.startMouseY = svgPt.y;
+
+            // If the dragged node is not in current selection, select only it
+            if (!this.selectedNodes.has(nodeId)) {
+                this.clearSelection(container);
+                this.selectedNodes.add(nodeId);
+                g.classList.add('drag-selected');
+            }
+
+            // Save starting offsets for all selected nodes
+            this.startOffsets = {};
+            this.selectedNodes.forEach(id => {
+                const target = this.resolveTarget(id);
+                if (target) {
+                    this.startOffsets[id] = {
+                        x: target.obj[target.ox] || 0,
+                        y: target.obj[target.oy] || 0,
+                    };
+                }
+            });
+        });
+
+        svg.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+
+            const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
+            let dx = svgPt.x - this.startMouseX;
+            let dy = svgPt.y - this.startMouseY;
+
+            // Detect first significant movement to lock axis if Shift
+            if (!this.hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                this.hasMoved = true;
+                if (e.shiftKey) {
+                    this.axisLock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+                }
+            }
+
+            // Apply axis constraint
+            if (this.axisLock === 'x') dy = 0;
+            if (this.axisLock === 'y') dx = 0;
+
+            // Apply visual transform to all selected nodes
+            this.selectedNodes.forEach(id => {
+                const gEl = svg.querySelector(`[data-node-id="${id}"]`);
+                if (gEl) {
+                    gEl.setAttribute('transform', `translate(${dx}, ${dy})`);
+                    gEl.style.opacity = '0.85';
+                }
+            });
+        });
+
+        const endDrag = (e) => {
+            if (!this.isDragging) return;
+            this.isDragging = false;
+
+            const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
+            let dx = svgPt.x - this.startMouseX;
+            let dy = svgPt.y - this.startMouseY;
+
+            if (this.axisLock === 'x') dy = 0;
+            if (this.axisLock === 'y') dx = 0;
+
+            if (!this.hasMoved) {
+                // It was a click, not a drag — reset transforms and open editor
+                this.selectedNodes.forEach(id => {
+                    const gEl = svg.querySelector(`[data-node-id="${id}"]`);
+                    if (gEl) { gEl.removeAttribute('transform'); gEl.style.opacity = ''; }
+                });
+                const nodeId = this.dragNode?.getAttribute('data-node-id');
+                if (nodeId) window.openNodeEditor(nodeId);
+                return;
+            }
+
+            // Snap to grid
+            dx = Math.round(dx / this.SNAP_GRID) * this.SNAP_GRID;
+            dy = Math.round(dy / this.SNAP_GRID) * this.SNAP_GRID;
+
+            // Save new offsets for all selected nodes
+            this.selectedNodes.forEach(id => {
+                const target = this.resolveTarget(id);
+                if (target) {
+                    const start = this.startOffsets[id] || { x: 0, y: 0 };
+                    target.obj[target.ox] = start.x + dx;
+                    target.obj[target.oy] = start.y + dy;
+                }
+            });
+
+            // Re-render to recalculate arrows with new positions
+            renderDiagram(currentDiagramData, false);
+        };
+
+        svg.addEventListener('mouseup', endDrag);
+        svg.addEventListener('mouseleave', endDrag);
+    }
+};
+
+/* ========================================================================
    RICH TEXT EDITOR MODULE
    ======================================================================== */
 const FONT_OPTIONS = [
@@ -947,6 +1160,7 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
     if (!segments || segments.length === 0) return { svg: '', height: 0 };
     const SAFETY = 1.08, LH = 1.35;
     const fontSize = defaults.size, fontFamily = defaults.font, defWeight = defaults.weight || '400';
+    const align = defaults.align || 'left';
     const words = [];
     for (const seg of segments) {
         if (seg.text === '\n') { words.push({ text: '\n', lb: true }); continue; }
@@ -984,7 +1198,12 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
             prevKey = key;
         }
         if (buf) tspans += _buildRichTspan(buf, prevKey, defWeight);
-        svgStr += `<text x="${x}" y="${cY}" font-family="${fontFamily}" font-size="${fontSize}" fill="${defaults.color}" dominant-baseline="central">${tspans}</text>`;
+        
+        let ax = x, anchor = 'start';
+        if (align === 'center') { ax = x + maxWidth / 2; anchor = 'middle'; }
+        else if (align === 'right') { ax = x + maxWidth; anchor = 'end'; }
+        
+        svgStr += `<text x="${ax}" y="${cY}" font-family="${fontFamily}" font-size="${fontSize}" fill="${defaults.color}" dominant-baseline="central" text-anchor="${anchor}">${tspans}</text>`;
         curY += slotH;
     }
     return { svg: svgStr, height: curY - y };
@@ -1047,6 +1266,8 @@ function bindRichTextEvents(container, getNode, rerender) {
                 if (info.fieldKey === 'title') info.node.customTitleSize = sv;
                 else if (info.fieldKey === 'subtitle') info.node.customSubtitleSize = sv;
                 else if (info.fieldKey === 'description') info.node.customDescriptionSize = sv;
+                else if (info.fieldKey === 'body') info.node.customBodySize = sv;
+                else if (info.fieldKey === 'question') info.node.customQuestionSize = sv;
                 rerender();
             }
         });
@@ -1273,6 +1494,10 @@ class SVGRenderer {
         
         // Custom width override
         let actualWidth = (nodeData && nodeData.customWidth) ? nodeData.customWidth : width;
+        
+        // Apply drag offsets
+        if (nodeData && nodeData.customOffsetX) x += nodeData.customOffsetX;
+        if (nodeData && nodeData.customOffsetY) y += nodeData.customOffsetY;
         
         // Custom border color
         const borderColor = (nodeData && nodeData.customBorderColor) ? nodeData.customBorderColor : this.colors.border;
@@ -1530,14 +1755,8 @@ class SVGRenderer {
 
         this.container.innerHTML = this.svgStr;
 
-        // Delegated click listener for interactive SVG nodes
-        this.container.addEventListener('click', (e) => {
-            const g = e.target.closest('[data-node-id]');
-            if (g) {
-                const nodeId = g.getAttribute('data-node-id');
-                window.openNodeEditor(nodeId);
-            }
-        });
+        // Initialize drag & click handling for interactive SVG nodes
+        DragManager.init(this.container);
     }
 
     addRouting(weeks) {
@@ -1674,14 +1893,19 @@ class PaginaInicioRenderer {
         const headerFontSize = this.fonts.hito;
         const headerW = this.measureText(headerTitle, headerFontSize, '800') * 1.05 + this.dims.pad * 2;
         const headerH = headerFontSize * LH + this.dims.pad * 2;
-        const headerCenterY = currentY + headerH / 2;
+        
+        // Apply drag offsets
+        const headerX = startX + (d.customOffsetX || 0);
+        const headerY = currentY + (d.customOffsetY || 0);
+
+        const headerCenterY = headerY + headerH / 2;
 
         nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="course_title">`;
-        nodesStr += `<rect x="${startX}" y="${currentY}" width="${headerW}" height="${headerH}" rx="${this.dims.br}" fill="${this.colors.orange}" />`;
-        nodesStr += `<text x="${startX + this.dims.pad}" y="${headerCenterY}" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
+        nodesStr += `<rect x="${headerX}" y="${headerY}" width="${headerW}" height="${headerH}" rx="${this.dims.br}" fill="${this.colors.orange}" />`;
+        nodesStr += `<text x="${headerX + this.dims.pad}" y="${headerCenterY}" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
         nodesStr += `</g>`;
 
-        const headerBox = { x: startX, y: currentY, w: headerW, h: headerH, b: currentY + headerH };
+        const headerBox = { x: headerX, y: headerY, w: headerW, h: headerH, b: headerY + headerH };
         currentY += headerH + 35;
 
         // Trunk X position (vertical line comes down from header)
@@ -1734,19 +1958,24 @@ class PaginaInicioRenderer {
             const nodeDescSize = node.customDescriptionSize || this.fonts.subtitle;
 
             // ── Hito blue box ──
+            
+            // Apply drag offsets
+            const actHitoX = hitoX + (node.customOffsetX || 0);
+            const actHitoY = currentY + (node.customOffsetY || 0);
+            
             let hitoTextSvg = '';
-            let hitoCurY = currentY + this.dims.pad;
+            let hitoCurY = actHitoY + this.dims.pad;
 
             if (showTitle) {
                 if (node.richTitle) {
                     const segments = parseHtmlToSegments(node.richTitle);
-                    const result = renderRichSvgText(segments, hitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeTitleSize, weight: '800', color: this.colors.text }, this.ctx);
+                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeTitleSize, weight: '800', color: this.colors.text }, this.ctx);
                     hitoTextSvg += result.svg;
                     hitoCurY += result.height;
                 } else {
                     const titleSlot = nodeTitleSize * LH;
                     const titleCY = hitoCurY + titleSlot / 2;
-                    hitoTextSvg += `<text x="${hitoX + this.dims.pad}" y="${titleCY}" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${hitoNum}</text>`;
+                    hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${titleCY}" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${hitoNum}</text>`;
                     hitoCurY += titleSlot;
                 }
             }
@@ -1754,7 +1983,7 @@ class PaginaInicioRenderer {
             if (showSub && hitoType) {
                 if (node.richSubtitle) {
                     const segments = parseHtmlToSegments(node.richSubtitle);
-                    const result = renderRichSvgText(segments, hitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeSubSize, weight: '400', color: this.colors.text }, this.ctx);
+                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeSubSize, weight: '400', color: this.colors.text }, this.ctx);
                     hitoTextSvg += result.svg;
                     hitoCurY += result.height;
                 } else {
@@ -1762,22 +1991,27 @@ class PaginaInicioRenderer {
                     typeLines.forEach(line => {
                         const slot = nodeSubSize * LH;
                         const cy = hitoCurY + slot / 2;
-                        hitoTextSvg += `<text x="${hitoX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeSubSize}" fill="${this.colors.text}" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
+                        hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeSubSize}" fill="${this.colors.text}" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
                         hitoCurY += slot;
                     });
                 }
             }
 
-            const hitoH = hitoCurY - currentY + this.dims.pad;
+            const hitoH = hitoCurY - actHitoY + this.dims.pad;
 
             // ── Subtitle dashed box ──
+            
+            // Apply drag offsets
+            const actSubX = subX + (node.customSubOffsetX || 0);
+            const actSubY = currentY + (node.customSubOffsetY || 0);
+            
             let subTextSvg = '';
-            let subCurY = currentY + this.dims.pad;
+            let subCurY = actSubY + this.dims.pad;
 
             if (showDesc && subtitle) {
                 if (node.richDescription) {
                     const segments = parseHtmlToSegments(node.richDescription);
-                    const result = renderRichSvgText(segments, subX + this.dims.pad, subCurY, this.subtitleBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeDescSize, weight: '400', color: '#333' }, this.ctx);
+                    const result = renderRichSvgText(segments, actSubX + this.dims.pad, subCurY, this.subtitleBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeDescSize, weight: '400', color: '#333' }, this.ctx);
                     subTextSvg += result.svg;
                     subCurY += result.height;
                 } else {
@@ -1785,35 +2019,41 @@ class PaginaInicioRenderer {
                     subLines.forEach(line => {
                         const slot = nodeDescSize * LH;
                         const cy = subCurY + slot / 2;
-                        subTextSvg += `<text x="${subX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeDescSize}" fill="#333" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
+                        subTextSvg += `<text x="${actSubX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeDescSize}" fill="#333" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
                         subCurY += slot;
                     });
+
                 }
             }
 
-            const subH = Math.max(hitoH, subCurY - currentY + this.dims.pad);
+            const subH = showDesc ? (subCurY - actSubY + this.dims.pad) : 0;
             const rowH = Math.max(hitoH, subH);
 
             // Center smaller box vertically
-            const hitoYOffset = currentY + (rowH - hitoH) / 2;
-            const subYOffset = currentY + (rowH - subH) / 2;
+            const hitoYOffset = actHitoY + (rowH - hitoH) / 2;
+            const subYOffset = actSubY + (rowH - subH) / 2;
 
             // Draw hito blue box
             nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}">`;
-            nodesStr += `<rect x="${hitoX}" y="${hitoYOffset}" width="${this.hitoBoxW}" height="${hitoH}" rx="${this.dims.br}" fill="${bgColor}" stroke="${borderColor}" stroke-width="${this.dims.bw}" />`;
-            // Re-render text at correct offset
-            nodesStr += hitoTextSvg.replace(new RegExp(`y="${currentY + this.dims.pad}`, 'g'), `y="${hitoYOffset + this.dims.pad}`);
-            nodesStr += `</g>`;
+            nodesStr += `<rect x="${actHitoX}" y="${hitoYOffset}" width="${this.hitoBoxW}" height="${hitoH}" rx="${this.dims.br}" fill="${bgColor}" stroke="${borderColor}" stroke-width="${this.dims.bw}" />`;
+            // Text is already offset by actHitoY + this.dims.pad in rendering, we just need to shift it to center
+            const hShift = hitoYOffset - actHitoY;
+            nodesStr += `<g transform="translate(0, ${hShift})">`;
+            nodesStr += hitoTextSvg;
+            nodesStr += `</g></g>`;
 
             // Draw subtitle dashed box
-            nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}_sub">`;
-            nodesStr += `<rect x="${subX}" y="${subYOffset}" width="${this.subtitleBoxW}" height="${subH}" rx="${this.dims.br}" fill="${this.colors.subBoxBg}" stroke="${this.colors.subBox}" stroke-width="${this.dims.bw}" />`;
-            nodesStr += subTextSvg;
-            nodesStr += `</g>`;
+            if (showDesc) {
+                nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}_sub">`;
+                nodesStr += `<rect x="${actSubX}" y="${subYOffset}" width="${this.subtitleBoxW}" height="${subH}" rx="${this.dims.br}" fill="${this.colors.subBoxBg}" stroke="${this.colors.subBox}" stroke-width="${this.dims.bw}" />`;
+                const sShift = subYOffset - actSubY;
+                nodesStr += `<g transform="translate(0, ${sShift})">`;
+                nodesStr += subTextSvg;
+                nodesStr += `</g></g>`;
+            }
 
-
-            hitoBoxes.push({ x: hitoX, y: hitoYOffset, w: this.hitoBoxW, h: hitoH, cx: hitoX + this.hitoBoxW / 2, cy: hitoYOffset + hitoH / 2, r: hitoX + this.hitoBoxW, b: hitoYOffset + hitoH });
-            subBoxes.push({ x: subX, y: subYOffset, w: this.subtitleBoxW, h: subH, cx: subX + this.subtitleBoxW / 2, cy: subYOffset + subH / 2 });
+            hitoBoxes.push({ x: actHitoX, y: hitoYOffset, w: this.hitoBoxW, h: hitoH, cx: actHitoX + this.hitoBoxW / 2, cy: hitoYOffset + hitoH / 2, r: actHitoX + this.hitoBoxW, b: hitoYOffset + hitoH });
+            subBoxes.push({ x: actSubX, y: subYOffset, w: this.subtitleBoxW, h: subH, cx: actSubX + this.subtitleBoxW / 2, cy: subYOffset + subH / 2 });
 
             currentY += rowH + this.rowGap;
         });
@@ -1976,28 +2216,50 @@ class TarjetaRenderer {
         const titleFontSize = parseInt(val('s-card-title-font')) || 60;
         svg += `<text x="${W / 2}" y="${headerBottom / 2}" font-family="${this.font}" font-size="${titleFontSize}" fill="${this.colors.white}" font-weight="700" text-anchor="middle" dominant-baseline="central">${this.escapeXml(hitoTitle)}</text>`;
 
-        // ── Body text (pure SVG text for export compatibility) ──
+        // ── Body text (SVG text) ──
         const bodyLH = parseFloat(val('s-card-body-lh')) || 1.35;
         const bodyPadTop = 18;
         const bodyLeftX = textPadX;
         const bodyRightX = W - textPadX;
+        if (n.customBodySize) bodyFontSize = n.customBodySize;
+        
         const bodyLineH = bodyFontSize * bodyLH;
-        const bodyLines = this.wrapText(bodyText, bodyFontSize, bodyMaxW);
         const bodyStartY = bodyTop + bodyPadTop + bodyFontSize;
-        svg += this.renderAlignedLines(bodyLines, bodyAlign, bodyLeftX, bodyRightX, bodyStartY, bodyLineH, bodyFontSize, this.colors.black, '400');
+        
+        if (n.richCardBody) {
+            const segments = parseHtmlToSegments(n.richCardBody);
+            // Since our old logic put the starting Y near the top of the body box, we just use it
+            const result = renderRichSvgText(segments, bodyLeftX, bodyStartY - bodyFontSize/2, bodyMaxW, { font: n.customFont || this.font, size: bodyFontSize, weight: '400', color: this.colors.black, align: bodyAlign }, this.ctx);
+            svg += result.svg;
+        } else {
+            const bodyLines = this.wrapText(bodyText, bodyFontSize, bodyMaxW);
+            svg += this.renderAlignedLines(bodyLines, bodyAlign, bodyLeftX, bodyRightX, bodyStartY, bodyLineH, bodyFontSize, this.colors.black, '400');
+        }
 
-        // ── Footer text (pure SVG text for export compatibility) ──
+        // ── Footer text (SVG text) ──
         const footerLH = parseFloat(val('s-card-footer-lh')) || 1.3;
         const footerPadX = textPadX;
         const footerLeftX = footerPadX;
         const footerRightX = W - footerPadX;
         const footerMaxW = W - footerPadX * 2;
+        if (n.customQuestionSize) questionFontSize = n.customQuestionSize;
+        
         const footerLineH = questionFontSize * footerLH;
-        const footerLines = this.wrapText(questionText, questionFontSize, footerMaxW);
-        // Vertically center footer text within the footer area
-        const footerTextBlockH = footerLines.length * footerLineH;
-        const footerStartY = footerY + (footerH - footerTextBlockH) / 2 + questionFontSize * 0.8;
-        svg += this.renderAlignedLines(footerLines, footerAlign, footerLeftX, footerRightX, footerStartY, footerLineH, questionFontSize, this.colors.white, '600');
+        
+        if (n.richCardQuestion) {
+            const segments = parseHtmlToSegments(n.richCardQuestion);
+            // We need to vertically center the rich text height inside the footer:
+            const resultTest = renderRichSvgText(segments, footerLeftX, 0, footerMaxW, { font: n.customFont || this.font, size: questionFontSize, weight: '600', color: this.colors.white, align: footerAlign }, this.ctx);
+            const footerTextBlockH = resultTest.height;
+            const rtFooterStartY = footerY + (footerH - footerTextBlockH) / 2;
+            const finalResult = renderRichSvgText(segments, footerLeftX, rtFooterStartY, footerMaxW, { font: n.customFont || this.font, size: questionFontSize, weight: '600', color: this.colors.white, align: footerAlign }, this.ctx);
+            svg += finalResult.svg;
+        } else {
+            const footerLines = this.wrapText(questionText, questionFontSize, footerMaxW);
+            const footerTextBlockH = footerLines.length * footerLineH;
+            const footerStartY = footerY + (footerH - footerTextBlockH) / 2 + questionFontSize * 0.8;
+            svg += this.renderAlignedLines(footerLines, footerAlign, footerLeftX, footerRightX, footerStartY, footerLineH, questionFontSize, this.colors.white, '600');
+        }
 
         const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${this.escapeXml(hitoTitle)}">
             ${svg}
