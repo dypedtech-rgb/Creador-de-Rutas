@@ -1065,8 +1065,10 @@ const DragManager = {
             }
 
             // Snap to grid
-            dx = Math.round(dx / this.SNAP_GRID) * this.SNAP_GRID;
-            dy = Math.round(dy / this.SNAP_GRID) * this.SNAP_GRID;
+            const snapEl = document.getElementById('s-snap-grid');
+            const snapGrid = (snapEl && snapEl.checked) ? this.SNAP_GRID : 1;
+            dx = Math.round(dx / snapGrid) * snapGrid;
+            dy = Math.round(dy / snapGrid) * snapGrid;
 
             // Save new offsets for all selected nodes
             this.selectedNodes.forEach(id => {
@@ -2532,8 +2534,28 @@ document.getElementById('toggle-panel').addEventListener('click', () => {
 });
 
 // Apply settings → update CSS vars and re-render
-document.getElementById('apply-settings').addEventListener('click', applySettings);
+document.getElementById('apply-settings')?.addEventListener('click', applySettings);
 
+// Reset all manual node positions
+document.getElementById('btn-reset-positions')?.addEventListener('click', () => {
+    if (!currentDiagramData || !currentDiagramData.diagram) return;
+    const d = currentDiagramData.diagram;
+    delete d.customOffsetX;
+    delete d.customOffsetY;
+    
+    function resetNodes(nodes) {
+        if (!nodes) return;
+        nodes.forEach(n => {
+            delete n.customOffsetX;
+            delete n.customOffsetY;
+            delete n.customSubOffsetX;
+            delete n.customSubOffsetY;
+            if (n.children) resetNodes(n.children);
+        });
+    }
+    resetNodes(d.nodes);
+    renderDiagram(currentDiagramData, false);
+});
 // Real-time: listen for any input change inside settings panel
 document.querySelectorAll('#settings-panel input, #settings-panel select').forEach(el => {
     el.addEventListener('input', applySettings);

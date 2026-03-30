@@ -1024,3 +1024,9 @@ summary:hover { color: #fff; }
   margin-bottom: 2px;
   margin-top: 4px;
 }
+/* Drag & Drop Visual Feedback */
+.interactive-node.drag-selected > rect {
+    stroke: var(--edtech-primary) !important;
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 6px rgba(81, 107, 237, 0.4));
+}
