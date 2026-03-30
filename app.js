@@ -2151,39 +2151,30 @@ function renderTarjetaSidebar(hitoIdx) {
     if (!node) return;
 
     const hitoTitle = (node.card.customTitle !== undefined ? node.card.customTitle : `Hito ${node.text.hitoNum}`).replace(/"/g, '&quot;');
-    const bodyText = (node.card.customBody !== undefined ? node.card.customBody : node.card.body).replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    const questionText = (node.card.customQuestion !== undefined ? node.card.customQuestion : node.card.question).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const bodyContent = node.richCardBody || node.card.customBody || node.card.body || '';
+    const questionContent = node.richCardQuestion || node.card.customQuestion || node.card.question || '';
+    const nodeFont = node.customFont || val('s-font-family');
 
     let html = `
     <div class="structure-group">
         <div class="structure-card" data-id="${node.id}">
             <div class="structure-group-title" style="margin-bottom:0.3rem;">Tarjeta — Hito ${node.text.hitoNum}</div>
             <div class="card-collapsible-body">
-                <div class="field-row">
-                    <label style="font-size:0.7rem; color:var(--edtech-text-muted); font-weight:600; margin-bottom:0.1rem;">Título (Header)</label>
-                </div>
+                <div class="field-label">Título (Header)</div>
                 <div class="field-row">
                     <input type="text" class="live-edit-card-title" data-idx="${hitoIdx}" value="${hitoTitle}" placeholder="Hito N...">
                 </div>
-                <div class="field-row" style="margin-top:0.4rem;">
-                    <label style="font-size:0.7rem; color:var(--edtech-text-muted); font-weight:600; margin-bottom:0.1rem;">Texto de competencia (Body)</label>
-                </div>
-                <div class="field-row">
-                    <textarea class="live-edit-card-body" rows="4" data-idx="${hitoIdx}" placeholder="Texto de competencia..." spellcheck="true" lang="es">${bodyText}</textarea>
-                </div>
-                <div class="field-row" style="margin-top:0.4rem;">
-                    <label style="font-size:0.7rem; color:var(--edtech-text-muted); font-weight:600; margin-bottom:0.1rem;">Pregunta Autoevalúate (Footer)</label>
-                </div>
-                <div class="field-row">
-                    <textarea class="live-edit-card-question" rows="3" data-idx="${hitoIdx}" placeholder="Pregunta retadora..." spellcheck="true" lang="es">${questionText}</textarea>
-                </div>
+                <div class="field-label" style="margin-top:0.4rem;">Texto de competencia (Body)</div>
+                ${createRichFieldHTML('card-' + hitoIdx + '-body', bodyContent, { placeholder: 'Texto de competencia...', font: nodeFont, size: val('s-card-body-font') })}
+                <div class="field-label" style="margin-top:0.4rem;">Pregunta Autoevalúate (Footer)</div>
+                ${createRichFieldHTML('card-' + hitoIdx + '-question', questionContent, { placeholder: 'Pregunta retadora...', font: nodeFont, size: val('s-card-q-font') })}
             </div>
         </div>
     </div>`;
 
     list.innerHTML = html;
 
-    // Bind events
+    // Bind title input
     const titleInput = list.querySelector('.live-edit-card-title');
     if (titleInput) {
         titleInput.addEventListener('input', (e) => {
@@ -2192,28 +2183,34 @@ function renderTarjetaSidebar(hitoIdx) {
         });
     }
 
-    const bodyTextarea = list.querySelector('.live-edit-card-body');
-    if (bodyTextarea) {
-        setTimeout(() => { bodyTextarea.style.height = 'auto'; bodyTextarea.style.height = bodyTextarea.scrollHeight + 'px'; }, 10);
-        bodyTextarea.addEventListener('input', (e) => {
-            e.target.style.height = 'auto';
-            e.target.style.height = e.target.scrollHeight + 'px';
-            node.card.customBody = e.target.value;
-            renderActiveCard(hitoIdx);
-        });
-    }
+    // Bind rich text events for body and question
+    bindRichTextEvents(list, (fieldId) => {
+        const parts = fieldId.match(/^card-(\d+)-(body|question)$/);
+        if (!parts) return null;
+        return { node, fieldKey: parts[2] };
+    }, () => renderActiveCard(hitoIdx));
 
-    const qTextarea = list.querySelector('.live-edit-card-question');
-    if (qTextarea) {
-        setTimeout(() => { qTextarea.style.height = 'auto'; qTextarea.style.height = qTextarea.scrollHeight + 'px'; }, 10);
-        qTextarea.addEventListener('input', (e) => {
-            e.target.style.height = 'auto';
-            e.target.style.height = e.target.scrollHeight + 'px';
-            node.card.customQuestion = e.target.value;
+    // Bind editors directly for HTML storage
+    list.querySelectorAll('.rich-editor').forEach(editor => {
+        const fieldEl = editor.closest('[data-field-id]');
+        if (!fieldEl) return;
+        const fieldId = fieldEl.getAttribute('data-field-id');
+        const parts = fieldId.match(/^card-(\d+)-(body|question)$/);
+        if (!parts) return;
+        const fieldKey = parts[2];
+        editor.addEventListener('input', () => {
+            if (fieldKey === 'body') {
+                node.richCardBody = editor.innerHTML;
+                node.card.customBody = editor.textContent;
+            } else if (fieldKey === 'question') {
+                node.richCardQuestion = editor.innerHTML;
+                node.card.customQuestion = editor.textContent;
+            }
             renderActiveCard(hitoIdx);
         });
-    }
+    });
 }
+
 
 function renderActiveCard(hitoIdx) {
     const container = document.getElementById('diagram');
