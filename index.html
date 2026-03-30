@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDTECH Suite | Tarjetas y Página de Inicio</title>
+    <link rel="stylesheet" href="style.css?v=4">
+    <script src="lib/mammoth.min.js"></script>
+    <script src="lib/html2canvas.min.js"></script>
+    <script src="lib/jszip.min.js"></script>
+
+</head>
+<body>
+    <header class="app-header">
+        <h1><span style="color: var(--edtech-accent); font-weight: 800;">EDTECH</span> Suite <span style="opacity: 0.4; font-weight: 300; margin: 0 8px;">|</span> Tarjetas y Página de Inicio</h1>
+        <div class="controls">
+            <input type="file" id="docx-upload" accept=".docx,.json" class="file-input" multiple>
+            <label for="docx-upload" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 16 4-4 4 4"/></svg>
+                Cargar DOCX / JSON
+            </label>
+
+            <div class="header-separator"></div>
+            <button id="download-btn" class="btn btn-secondary" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Descargar PNG
+            </button>
+            <button id="download-svg-btn" class="btn btn-secondary" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Descargar SVG
+            </button>
+            <button id="download-zip-btn" class="btn btn-secondary" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar ZIP
+            </button>
+            <button id="toggle-panel" class="btn btn-toggle">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Personalizar
+            </button>
+
+        </div>
+    </header>
+
+    <div class="app-body">
+        <!-- ── Settings Panel ── -->
+        <aside id="settings-panel" class="settings-panel">
+            <div class="panel-inner">
+                <h2>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; vertical-align:-3px"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 20.66-1-1.73"/><path d="M11 5.07 10 3.34"/><path d="m20.66 17-1.73-1"/><path d="m3.34 7 1.73 1"/><path d="M14 12h8"/><path d="M2 12h2"/><path d="m20.66 7-1.73 1"/><path d="m3.34 17 1.73-1"/><path d="m17 3.34-1 1.73"/><path d="m11 18.93-1 1.73"/></svg>
+                    Personalización
+                </h2>
+
+                <!-- LIENZO -->
+                <details open>
+                    <summary><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg> Lienzo</summary>
+                    <div class="setting-group">
+                        <label>Ancho del lienzo (px)
+                            <input type="number" id="s-canvas-width" value="1000" min="600" max="1800" step="50">
+                        </label>
+                        <label>Fondo transparente
+                            <input type="checkbox" id="s-canvas-transparent" checked>
+                        </label>
+                        <label>Color de fondo
+                            <div class="color-hex-group">
+                                <input type="color" id="s-canvas-bg" value="#ffffff">
+                                <input type="text" id="hex-canvas-bg" value="#ffffff" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Padding general (px)
+                            <input type="number" id="s-canvas-padding" value="10" min="0" max="100" step="5">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- PALETA DE COLORES -->
+                <details open>
+                    <summary><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="15.5" r="2.5"/><circle cx="8.5" cy="15.5" r="2.5"/><circle cx="6.5" cy="6.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> Paleta de Colores</summary>
+                    <div class="setting-group">
+                        <div style="font-size:0.7rem; color:var(--edtech-text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.3rem; margin-top:0.2rem; border-bottom:1px solid var(--edtech-border); padding-bottom:0.25rem;">Diagrama (Ruta)</div>
+                        <label>Hito (azul principal)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-main" value="#2E5BCC">
+                                <input type="text" id="hex-color-main" value="#2E5BCC" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Semana (azul claro)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-week" value="#6F90CD">
+                                <input type="text" id="hex-color-week" value="#6F90CD" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Contenido (azul oscuro)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-content" value="#214FC7">
+                                <input type="text" id="hex-color-content" value="#214FC7" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Actividad (azul medio)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-activity" value="#6F90CD">
+                                <input type="text" id="hex-color-activity" value="#6F90CD" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Naranja / borde / conector
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-orange" value="#F57C20">
+                                <input type="text" id="hex-color-orange" value="#F57C20" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Texto sobre cajas
+                            <div class="color-hex-group">
+                                <input type="color" id="s-color-text" value="#FFFFFF">
+                                <input type="text" id="hex-color-text" value="#FFFFFF" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Caja Descripción (borde)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-diag-sub-color" value="#F57C20">
+                                <input type="text" id="hex-diag-sub-color" value="#F57C20" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Caja Descripción (fondo)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-diag-sub-bg" value="#dddddd">
+                                <input type="text" id="hex-diag-sub-bg" value="#DDDDDD" maxlength="7" spellcheck="false" placeholder="none = transparente">
+                            </div>
+                        </label>
+
+                        <div style="font-size:0.7rem; color:var(--edtech-text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.3rem; margin-top:0.5rem; border-bottom:1px solid var(--edtech-border); padding-bottom:0.25rem;">Tarjetas</div>
+                        <label>Header (naranja)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-card-header" value="#F16522">
+                                <input type="text" id="hex-card-header" value="#F16522" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Body (gris)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-card-body" value="#DDDDDD">
+                                <input type="text" id="hex-card-body" value="#DDDDDD" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                        <label>Footer (azul)
+                            <div class="color-hex-group">
+                                <input type="color" id="s-card-footer" value="#516BED">
+                                <input type="text" id="hex-card-footer" value="#516BED" maxlength="7" spellcheck="false">
+                            </div>
+                        </label>
+                    </div>
+                </details>
+
+                <!-- DIAGRAMA -->
+                <details open>
+                    <summary><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Diagrama</summary>
+                    <div class="setting-group">
+                        <label>Fuente principal
+                            <select id="s-font-family">
+                                <option value="'Montserrat', sans-serif" selected>Montserrat</option>
+                                <option value="'Inter', sans-serif">Inter</option>
+                                <option value="'Roboto', sans-serif">Roboto</option>
+                                <option value="'Open Sans', sans-serif">Open Sans</option>
+                                <option value="'Poppins', sans-serif">Poppins</option>
+                                <option value="'Lato', sans-serif">Lato</option>
+                                <option value="Arial, sans-serif">Arial</option>
+                            </select>
+                        </label>
+                        <label>Título Hito (px)
+                            <input type="number" id="s-hito-font" value="30" min="14" max="48" step="1">
+                        </label>
+                        <label>Subtítulo (px)
+                            <input type="number" id="s-title-font" value="15" min="10" max="28" step="1">
+                        </label>
+                        <label>Descripción (px)
+                            <input type="number" id="s-subtitle-font" value="20" min="8" max="22" step="1">
+                        </label>
+                        <label>Ancho caja Hito (px)
+                            <input type="number" id="s-diag-hito-w" value="360" min="150" max="600" step="10">
+                        </label>
+                        <label>Ancho caja Descripción (px)
+                            <input type="number" id="s-diag-sub-w" value="300" min="150" max="600" step="10">
+                        </label>
+                        <label>Espacio entre filas (px)
+                            <input type="number" id="s-diag-row-gap" value="25" min="5" max="80" step="5">
+                        </label>
+                        <label>Grosor del conector (px)
+                            <input type="number" id="s-conn-width" value="2" min="1" max="6" step="1">
+                        </label>
+                        <label>Radio de esquinas (px)
+                            <input type="number" id="s-border-radius" value="13" min="0" max="20" step="1">
+                        </label>
+                        <label>Grosor del borde (px)
+                            <input type="number" id="s-border-width" value="2" min="0" max="6" step="1">
+                        </label>
+                        <label>Tipo de flecha
+                            <select id="s-arrow-type">
+                                <option value="triangle" selected>▶ Triángulo (relleno)</option>
+                                <option value="open">▷ Abierto (contorno)</option>
+                                <option value="circle">● Círculo</option>
+                                <option value="diamond">◆ Diamante</option>
+                                <option value="none">— Sin flecha</option>
+                            </select>
+                        </label>
+                        <label>Tamaño flecha (px)
+                            <input type="number" id="s-arrow-size" value="10" min="4" max="20" step="1">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- TARJETAS -->
+                <details open>
+                    <summary><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Tarjetas</summary>
+                    <div class="setting-group">
+                        <label>Texto body (px)
+                            <input type="number" id="s-card-body-font" value="20" min="8" max="30" step="1">
+                        </label>
+                        <label>Texto pregunta (px)
+                            <input type="number" id="s-card-q-font" value="20" min="8" max="30" step="1">
+                        </label>
+                        <label>Alineación body
+                            <select id="s-card-body-align">
+                                <option value="left">Izquierda</option>
+                                <option value="center">Centro</option>
+                                <option value="right">Derecha</option>
+                                <option value="justify" selected>Justificado</option>
+                            </select>
+                        </label>
+                        <label>Alineación footer
+                            <select id="s-card-footer-align">
+                                <option value="center" selected>Centro</option>
+                                <option value="left">Izquierda</option>
+                                <option value="right">Derecha</option>
+                                <option value="justify">Justificado</option>
+                            </select>
+                        </label>
+                        <label>Interlineado body
+                            <input type="number" id="s-card-body-lh" value="1.35" min="0.8" max="3" step="0.05">
+                        </label>
+                        <label>Interlineado footer
+                            <input type="number" id="s-card-footer-lh" value="1.3" min="0.8" max="3" step="0.05">
+                        </label>
+                        <label>Título Hito (px)
+                            <input type="number" id="s-card-title-font" value="60" min="20" max="80" step="2">
+                        </label>
+                        <label>Alto header (px)
+                            <input type="number" id="s-card-header-h" value="92" min="50" max="200" step="5">
+                        </label>
+                        <label>Alto footer (px)
+                            <input type="number" id="s-card-footer-h" value="194" min="80" max="350" step="5">
+                        </label>
+                        <label>Radio esquinas (px)
+                            <input type="number" id="s-card-corner-r" value="35" min="0" max="60" step="5">
+                        </label>
+                        <label>Alto sombra (px)
+                            <input type="number" id="s-card-shadow-h" value="12" min="0" max="30" step="2">
+                        </label>
+                    </div>
+                </details>
+
+                <button id="apply-settings" class="btn btn-apply">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aplicar cambios
+                </button>
+                <button id="reset-settings" class="btn btn-reset">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Restaurar valores
+                </button>
+                <div class="config-io">
+                    <button id="export-config-btn" class="btn btn-io">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Exportar config
+                    </button>
+                    <button id="import-config-btn" class="btn btn-io">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Importar config
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ── Main Canvas ── -->
+        <main class="app-main">
+            <!-- Primary Tab Navigation (per Hito, shown when multiple docs loaded) -->
+            <div id="hito-tabs" class="canvas-tabs hito-tabs" style="display:none;"></div>
+            <!-- Secondary Tab Navigation (Diagrama + Tarjetas, for Página de Inicio) -->
+            <div id="canvas-tabs" class="canvas-tabs" style="display:none;"></div>
+            <div class="canvas-wrapper">
+                <div id="diagram" class="diagram-container">
+                    <div class="placeholder">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 16 4-4 4 4"/></svg>
+                        <div>Generador de Tarjetas y Página de Inicio</div>
+                        <span>Haz clic en "Cargar DOCX" en la barra superior para procesar tu documento y previsualizar la ruta.</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Zoom Controls -->
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-out" title="Alejar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button class="zoom-btn zoom-label" id="zoom-reset" title="Restablecer zoom"><span id="zoom-value">100%</span></button>
+                <button class="zoom-btn" id="zoom-in" title="Acercar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+            </div>
+        </main>
+        
+        <!-- ── Right Sidebar Node Editor (Permanent) ── -->
+        <aside id="node-editor-sidebar" class="editor-sidebar">
+            <div class="panel-inner" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="sidebar-header">
+                    <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; vertical-align:-3px"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+                        Contenido del Gráfico
+                    </h2>
+                </div>
+                
+                <div class="sidebar-body outline-body" id="structure-content-list" style="flex: 1; overflow-y: auto;">
+                    <div class="placeholder" style="margin-top: 2rem;">
+                        <span style="color:var(--edtech-text-muted); font-size:0.85rem; text-align:center; display:block;">Carga un archivo DOCX para visualizar y editar todo el contenido estructurado aquí.</span>
+                    </div>
+                </div>
+                
+                <div class="sidebar-footer" style="padding: 1rem; border-top: 1px solid var(--edtech-border); margin-top: auto;">
+                    <button id="export-data-json" class="btn btn-io" style="width: 100%; border-color: var(--edtech-accent); color: var(--edtech-accent);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Exportar Progreso (JSON)
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+    
+
+
+    <footer class="app-footer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+        <span>Designed for <strong>EDTECH</strong></span>
+    </footer>
+    
+    <script>document.write('<scr'+'ipt src="app.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+</body>
+</html>
