@@ -991,11 +991,27 @@ const DragManager = {
             g.style.cursor = 'move';
         });
 
+        let isLassoing = false;
+        let startLassoPt = null;
+        let lassoRect = null;
+
         svg.addEventListener('mousedown', (e) => {
             const g = e.target.closest('.interactive-node');
             if (!g) {
                 // Click on empty space: clear selection
                 if (!e.ctrlKey && !e.metaKey) this.clearSelection(container);
+                
+                // Start Lasso
+                isLassoing = true;
+                startLassoPt = this.screenToSVG(svg, e.clientX, e.clientY);
+                
+                lassoRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                lassoRect.setAttribute('class', 'lasso-rect');
+                lassoRect.setAttribute('fill', 'rgba(46, 91, 204, 0.1)');
+                lassoRect.setAttribute('stroke', '#2E5BCC');
+                lassoRect.setAttribute('stroke-dasharray', '4');
+                lassoRect.setAttribute('pointer-events', 'none');
+                svg.appendChild(lassoRect);
                 return;
             }
 
@@ -1038,9 +1054,39 @@ const DragManager = {
                     };
                 }
             });
+
+            // Collect Smart Guides targets (unselected nodes)
+            this.guideTargets = [];
+            svg.querySelectorAll('.interactive-node').forEach(node => {
+                const id = node.getAttribute('data-node-id');
+                if (this.selectedNodes.has(id)) return;
+                const rect = node.querySelector('rect');
+                if (!rect) return;
+                const rx = parseFloat(rect.getAttribute('x')) || 0;
+                const ry = parseFloat(rect.getAttribute('y')) || 0;
+                const rw = parseFloat(rect.getAttribute('width')) || 0;
+                const rh = parseFloat(rect.getAttribute('height')) || 0;
+                this.guideTargets.push({
+                    x: rx, y: ry, w: rw, h: rh,
+                    cx: rx + rw/2, cy: ry + rh/2,
+                    r: rx + rw, b: ry + rh
+                });
+            });
         });
 
         svg.addEventListener('mousemove', (e) => {
+            if (isLassoing) {
+                const pt = this.screenToSVG(svg, e.clientX, e.clientY);
+                const minX = Math.min(startLassoPt.x, pt.x);
+                const minY = Math.min(startLassoPt.y, pt.y);
+                const lw = Math.abs(pt.x - startLassoPt.x);
+                const lh = Math.abs(pt.y - startLassoPt.y);
+                lassoRect.setAttribute('x', minX);
+                lassoRect.setAttribute('y', minY);
+                lassoRect.setAttribute('width', lw);
+                lassoRect.setAttribute('height', lh);
+                return;
+            }
             if (!this.isDragging) return;
 
             const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
@@ -1059,6 +1105,72 @@ const DragManager = {
             if (this.axisLock === 'x') dy = 0;
             if (this.axisLock === 'y') dx = 0;
 
+            // Clear old guides
+            svg.querySelectorAll('.smart-guide').forEach(n => n.remove());
+
+            // Check Smart Guides
+            let snapDx = dx;
+            let snapDy = dy;
+            let guideLines = [];
+
+            if (this.dragNode) {
+                const rect = this.dragNode.querySelector('rect');
+                if (rect) {
+                    const startX = parseFloat(rect.getAttribute('x')) || 0;
+                    const startY = parseFloat(rect.getAttribute('y')) || 0;
+                    const w = parseFloat(rect.getAttribute('width')) || 0;
+                    const h = parseFloat(rect.getAttribute('height')) || 0;
+                    
+                    const startCx = startX + w/2;
+                    const startCy = startY + h/2;
+                    const startR = startX + w;
+                    const startB = startY + h;
+
+                    const curX = startX + dx;
+                    const curY = startY + dy;
+                    const curCx = startCx + dx;
+                    const curCy = startCy + dy;
+                    const curR = startR + dx;
+                    const curB = startB + dy;
+
+                    const THRESHOLD = 6;
+
+                    for (const tgt of this.guideTargets) {
+                        // Check X Snapping
+                        if (Math.abs(curX - tgt.x) < THRESHOLD) { snapDx = tgt.x - startX; guideLines.push({axis:'x', val:tgt.x}); }
+                        else if (Math.abs(curCx - tgt.cx) < THRESHOLD) { snapDx = tgt.cx - startCx; guideLines.push({axis:'x', val:tgt.cx}); }
+                        else if (Math.abs(curR - tgt.r) < THRESHOLD) { snapDx = tgt.r - startR; guideLines.push({axis:'x', val:tgt.r}); }
+                        
+                        // Check Y Snapping
+                        if (Math.abs(curY - tgt.y) < THRESHOLD) { snapDy = tgt.y - startY; guideLines.push({axis:'y', val:tgt.y}); }
+                        else if (Math.abs(curCy - tgt.cy) < THRESHOLD) { snapDy = tgt.cy - startCy; guideLines.push({axis:'y', val:tgt.cy}); }
+                        else if (Math.abs(curB - tgt.b) < THRESHOLD) { snapDy = tgt.b - startB; guideLines.push({axis:'y', val:tgt.b}); }
+                    }
+                }
+            }
+
+            dx = snapDx;
+            dy = snapDy;
+
+            // Draw visual guides
+            const totalW = svg.getAttribute('width') || 2000;
+            const totalH = svg.getAttribute('height') || 3000;
+            guideLines.forEach(line => {
+                const svgLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                svgLine.setAttribute('class', 'smart-guide');
+                svgLine.setAttribute('stroke', '#FF007A');
+                svgLine.setAttribute('stroke-width', '1');
+                svgLine.setAttribute('stroke-dasharray', '4');
+                if (line.axis === 'x') {
+                    svgLine.setAttribute('x1', line.val); svgLine.setAttribute('y1', 0);
+                    svgLine.setAttribute('x2', line.val); svgLine.setAttribute('y2', totalH);
+                } else {
+                    svgLine.setAttribute('x1', 0);        svgLine.setAttribute('y1', line.val);
+                    svgLine.setAttribute('x2', totalW);   svgLine.setAttribute('y2', line.val);
+                }
+                svg.appendChild(svgLine);
+            });
+
             // Apply visual transform to all selected nodes
             this.selectedNodes.forEach(id => {
                 const gEl = svg.querySelector(`[data-node-id="${id}"]`);
@@ -1070,8 +1182,43 @@ const DragManager = {
         });
 
         const endDrag = (e) => {
+            if (isLassoing) {
+                isLassoing = false;
+                if (lassoRect) {
+                    const lx = parseFloat(lassoRect.getAttribute('x'));
+                    const ly = parseFloat(lassoRect.getAttribute('y'));
+                    const lw = parseFloat(lassoRect.getAttribute('width'));
+                    const lh = parseFloat(lassoRect.getAttribute('height'));
+                    
+                    if (lw > 5 && lh > 5) {
+                        svg.querySelectorAll('.interactive-node').forEach(node => {
+                            const box = node.querySelector('rect');
+                            if (!box) return;
+                            const cx = parseFloat(box.getAttribute('x')) || 0;
+                            const cy = parseFloat(box.getAttribute('y')) || 0;
+                            const cw = parseFloat(box.getAttribute('width')) || 0;
+                            const ch = parseFloat(box.getAttribute('height')) || 0;
+                            
+                            if (cx < lx + lw && cx + cw > lx && cy < ly + lh && cy + ch > ly) {
+                                const id = node.getAttribute('data-node-id');
+                                if (id && !this.selectedNodes.has(id)) {
+                                    this.selectedNodes.add(id);
+                                    node.classList.add('drag-selected');
+                                }
+                            }
+                        });
+                    }
+                    lassoRect.remove();
+                    lassoRect = null;
+                }
+                return;
+            }
+
             if (!this.isDragging) return;
             this.isDragging = false;
+            
+            // Clean up guides
+            svg.querySelectorAll('.smart-guide').forEach(n => n.remove());
 
             const svgPt = this.screenToSVG(svg, e.clientX, e.clientY);
             let dx = svgPt.x - this.startMouseX;
