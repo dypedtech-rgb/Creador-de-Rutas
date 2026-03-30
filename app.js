@@ -1135,12 +1135,26 @@ const DragManager = {
             let guideLines = [];
 
             if (this.dragNode) {
-                const rect = this.dragNode.querySelector('rect');
-                if (rect) {
-                    const startX = parseFloat(rect.getAttribute('x')) || 0;
-                    const startY = parseFloat(rect.getAttribute('y')) || 0;
-                    const w = parseFloat(rect.getAttribute('width')) || 0;
-                    const h = parseFloat(rect.getAttribute('height')) || 0;
+                let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity;
+                this.selectedNodes.forEach(id => {
+                    const snEl = svg.querySelector(`[data-node-id="${id}"] rect`);
+                    if (snEl) {
+                        const sx = parseFloat(snEl.getAttribute('x')) || 0;
+                        const sy = parseFloat(snEl.getAttribute('y')) || 0;
+                        const sw = parseFloat(snEl.getAttribute('width')) || 0;
+                        const sh = parseFloat(snEl.getAttribute('height')) || 0;
+                        if (sx < sMinX) sMinX = sx;
+                        if (sy < sMinY) sMinY = sy;
+                        if (sx + sw > sMaxX) sMaxX = sx + sw;
+                        if (sy + sh > sMaxY) sMaxY = sy + sh;
+                    }
+                });
+
+                if (sMinX !== Infinity) {
+                    const startX = sMinX;
+                    const startY = sMinY;
+                    const w = sMaxX - sMinX;
+                    const h = sMaxY - sMinY;
                     
                     const startCx = startX + w/2;
                     const startCy = startY + h/2;
@@ -1932,7 +1946,11 @@ class SVGRenderer {
             currentY = branchB + this.spacing.weekGap;
         });
 
-        this.totalHeight = currentY + this.padding;
+        let highestY = currentY;
+        for (const key in this.boxes) {
+            if (this.boxes[key].b > highestY) highestY = this.boxes[key].b;
+        }
+        this.totalHeight = highestY + this.padding;
         this.addRouting(weeks);
 
         // No <defs> needed — arrowheads are inline polygons for max compatibility
@@ -2283,7 +2301,14 @@ class PaginaInicioRenderer {
             }
         }
 
-        const totalH = currentY + this.padding;
+        let highestY = currentY;
+        if (typeof hitoBoxes !== 'undefined') {
+            hitoBoxes.forEach(hb => { if (hb.b > highestY) highestY = hb.b; });
+        }
+        if (typeof subBoxes !== 'undefined') {
+            subBoxes.forEach(sb => { if (sb.b > highestY) highestY = sb.b; });
+        }
+        const totalH = highestY + this.padding;
         const isTransparent = document.getElementById('s-canvas-transparent').checked;
         const bgFill = isTransparent ? 'none' : document.getElementById('s-canvas-bg').value;
 
