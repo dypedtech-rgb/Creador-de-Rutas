@@ -3370,6 +3370,11 @@ function bindStructurePanelEvents() {
                 if (targetInfo && targetInfo.node) {
                     targetInfo.node.customWidth = v > 0 ? v : undefined;
                     if (!v) delete targetInfo.node.customWidth;
+                    
+                    if (currId !== id) {
+                        const relatedInput = list.querySelector(`.ctrl-width[data-id="${currId}"]`);
+                        if (relatedInput) relatedInput.value = v > 0 ? v : '';
+                    }
                 }
             });
             renderDiagram(currentDiagramData, false);
@@ -4694,8 +4699,9 @@ const ResizeManager = {
                 const clickedId = handle.getAttribute('data-resize-id');
                 
                 // Multi-select support: If the clicked node is selected, resize ALL selected nodes.
-                if (!isPI && DragManager.selectedNodes.has(clickedId)) {
-                    this.activeNodes = Array.from(DragManager.selectedNodes);
+                if (DragManager.selectedNodes.has(clickedId)) {
+                    // Place clickedId at index 0 so it acts as the reference for magnet snapping
+                    this.activeNodes = [clickedId, ...Array.from(DragManager.selectedNodes).filter(id => id !== clickedId)];
                 } else {
                     this.activeNodes = [clickedId];
                 }
@@ -4822,6 +4828,10 @@ const ResizeManager = {
                     const targetInfo = findParentAndNode(root, id);
                     if (targetInfo && targetInfo.node) {
                         targetInfo.node.customWidth = finalW;
+                        
+                        // Synchronize value back to the Customization sidebar input in real time
+                        const sidebarInput = document.querySelector(`.ctrl-width[data-id="${id}"]`);
+                        if (sidebarInput) sidebarInput.value = finalW;
                     }
                 }
             });
