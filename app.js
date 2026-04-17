@@ -1828,7 +1828,9 @@ class SVGRenderer {
         const hasRichSub = nodeData && nodeData.richSubtitle;
 
         if (isHito) {
-            actualWidth = this.measureText(titleLines[0], nodeTitleSize, '800') * 1.05 + (this.dims.pad * 2);
+            if (!nodeData || !nodeData.customWidth) {
+                actualWidth = this.measureText(titleLines[0], nodeTitleSize, '800') * 1.05 + (this.dims.pad * 2);
+            }
             curY += addText(textX, nodeTitleSize, '800', titleLines[0], ' dy="0.1em"');
         } else {
             if (showTitle) {
