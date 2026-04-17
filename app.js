@@ -2041,10 +2041,13 @@ class SVGRenderer {
         });
 
         let highestY = currentY;
+        let highestX = 0;
         for (const key in this.boxes) {
             if (this.boxes[key].b > highestY) highestY = this.boxes[key].b;
+            if (this.boxes[key].r > highestX) highestX = this.boxes[key].r;
         }
         this.totalHeight = highestY + this.padding;
+        this.totalWidth = Math.max(this.totalWidth, highestX + this.padding);
         this.addRouting(weeks);
 
         // No <defs> needed — arrowheads are inline polygons for max compatibility
@@ -2405,13 +2408,21 @@ class PaginaInicioRenderer {
         }
 
         let highestY = currentY;
+        let highestX = headerBox ? headerBox.r : 0;
         if (typeof hitoBoxes !== 'undefined') {
-            hitoBoxes.forEach(hb => { if (hb.b > highestY) highestY = hb.b; });
+            hitoBoxes.forEach(hb => { 
+                if (hb.b > highestY) highestY = hb.b; 
+                if (hb.r > highestX) highestX = hb.r;
+            });
         }
         if (typeof subBoxes !== 'undefined') {
-            subBoxes.forEach(sb => { if (sb.b > highestY) highestY = sb.b; });
+            subBoxes.forEach(sb => { 
+                if (sb.b > highestY) highestY = sb.b; 
+                if (sb.r > highestX) highestX = sb.r;
+            });
         }
         const totalH = highestY + this.padding;
+        this.totalWidth = Math.max(this.totalWidth, highestX + this.padding);
         const isTransparent = document.getElementById('s-canvas-transparent').checked;
         const bgFill = isTransparent ? 'none' : document.getElementById('s-canvas-bg').value;
 
