@@ -2217,7 +2217,7 @@ class PaginaInicioRenderer {
         nodesStr += `<text x="${headerX + this.dims.pad}" y="${headerCenterY}" dy="0.1em" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
         nodesStr += `</g>`;
 
-        const headerBox = { x: headerX, y: headerY, w: headerW, h: headerH, b: headerY + headerH };
+        const headerBox = { x: headerX, y: headerY, w: headerW, h: headerH, b: headerY + headerH, r: headerX + headerW };
         currentY += headerH + 35;
 
         // Trunk X position (vertical line comes down from header)
@@ -2373,7 +2373,7 @@ class PaginaInicioRenderer {
             }
 
             hitoBoxes.push({ x: actHitoX, y: hitoYOffset, w: actHitoW, h: hitoH, cx: actHitoX + actHitoW / 2, cy: hitoYOffset + hitoH / 2, r: actHitoX + actHitoW, b: hitoYOffset + hitoH });
-            subBoxes.push({ x: actSubX, y: subYOffset, w: actSubW, h: subH, cx: actSubX + actSubW / 2, cy: subYOffset + subH / 2 });
+            subBoxes.push({ x: actSubX, y: subYOffset, w: actSubW, h: subH, cx: actSubX + actSubW / 2, cy: subYOffset + subH / 2, r: actSubX + actSubW, b: subYOffset + subH });
 
             currentY += rowH + this.rowGap;
         });
