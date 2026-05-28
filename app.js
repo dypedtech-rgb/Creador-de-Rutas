@@ -356,7 +356,7 @@ function parsePaginaInicio(lines) {
     // Find the "Ruta de aprendizaje asignatura" section
     let rutaIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-        if (/Ruta\s+de\s+aprendizaje\s+asignatura/i.test(lines[i])) {
+        if (/Ruta\s+de\s+aprendizaje\s+(?:de\s+la\s+)?asignatura/i.test(lines[i])) {
             rutaIdx = i;
             break;
         }
@@ -437,7 +437,7 @@ function parsePaginaInicio(lines) {
                     if (currentBlock && (currentBlock.competencies.length > 0 || currentBlock.questions.length > 0)) {
                         hitoBlocks.push(currentBlock);
                     }
-                    currentBlock = { nums: [num], competencies: [], questions: [] };
+                    currentBlock = { nums: [num], competencies: [], questions: [], lastAdded: null };
                 } else {
                     // Add to existing block (paired hitos: HITO 01 / HITO 02)
                     currentBlock.nums.push(num);
@@ -447,15 +447,26 @@ function parsePaginaInicio(lines) {
 
             if (!currentBlock) continue;
 
-            const autoMatch = lines[i].match(/^Autoevalúate\s*:\s*(.*)/i);
+            const autoMatch = lines[i].match(/^Autoeval[uú]ate\s*:\s*(.*)/i);
             const preguntaMatch = lines[i].match(/^Pregunta\s+reflexiva\s*:\s*(.*)/i);
             if (autoMatch) {
                 currentBlock.questions.push(autoMatch[1].trim());
+                currentBlock.lastAdded = 'question';
             } else if (preguntaMatch) {
                 currentBlock.questions.push(preguntaMatch[1].trim());
-            } else if (lines[i].length > 10 && !/^Copia\s+de\s+la\s+herramienta/i.test(lines[i]) && !/^Redacta\s+un\s+p.rrafo/i.test(lines[i]) && !/^Si\s+consideras\s+que/i.test(lines[i])) {
-                // Long enough to be a competency text (skip instructions)
-                currentBlock.competencies.push(lines[i].trim());
+                currentBlock.lastAdded = 'question';
+            } else if (lines[i].length > 0 && !/^Copia\s+de\s+la\s+herramienta/i.test(lines[i]) && !/^Redacta\s+un\s+p.rrafo/i.test(lines[i]) && !/^Si\s+consideras\s+que/i.test(lines[i])) {
+                // Check if this might be a continuation of the previous line
+                // e.g. text split across multiple lines
+                if (currentBlock.lastAdded === 'question' && currentBlock.questions.length > 0) {
+                    currentBlock.questions[currentBlock.questions.length - 1] += ' ' + lines[i].trim();
+                } else if (currentBlock.lastAdded === 'competency' && currentBlock.competencies.length > 0) {
+                    currentBlock.competencies[currentBlock.competencies.length - 1] += ' ' + lines[i].trim();
+                } else if (lines[i].length > 10) {
+                    // New competency block
+                    currentBlock.competencies.push(lines[i].trim());
+                    currentBlock.lastAdded = 'competency';
+                }
             }
         }
         if (currentBlock && (currentBlock.competencies.length > 0 || currentBlock.questions.length > 0)) {
@@ -576,7 +587,7 @@ function parseDocxToJson(text) {
     // If not found, look for Hito 1 specific format from screenshot (find LAST occurrence to skip TOC)
     if (startIdx === -1) {
         for (let i = 0; i < lines.length; i++) {
-            if (/Ruta\s+de\s+aprendizaje\s+Hito\s+0?1/i.test(lines[i])) {
+            if (/Ruta\s+de\s+aprendizaje\s+(?:del\s+)?Hito\s+0?1/i.test(lines[i])) {
                 startIdx = i;
                 isHito1 = true;
             }
