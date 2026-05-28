@@ -2467,7 +2467,7 @@ class TarjetaRenderer {
     constructor(nodeData, container) {
         this.node = nodeData;
         this.container = container;
-        this.font = "'Suprema', Arial, sans-serif";
+        this.font = val('s-font-family') || "'Montserrat', sans-serif";
 
         // Fixed canvas size
         this.W = 376;
@@ -2499,9 +2499,9 @@ class TarjetaRenderer {
 
     wrapText(text, fontSize, maxWidth) {
         if (!text) return [];
-        this.ctx.font = `${fontSize}px Arial`;
-        // Safety factor: canvas measures with Arial but SVG renders with Suprema (wider)
-        const safeMax = maxWidth * 0.85;
+        this.ctx.font = `${fontSize}px ${this.font}`;
+        // Safety factor for canvas measurement vs SVG rendering
+        const safeMax = maxWidth * 0.88;
         const words = text.toString().split(' ');
         let lines = [];
         let current = words[0] || '';
@@ -2517,6 +2517,7 @@ class TarjetaRenderer {
         lines.push(current);
         return lines;
     }
+
 
     render() {
         const n = this.node;
