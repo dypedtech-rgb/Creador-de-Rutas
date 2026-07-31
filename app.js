@@ -2219,18 +2219,35 @@ class PaginaInicioRenderer {
         // ── 1. Draw course title header (orange box) ──
         const headerTitle = d.customTitle || d.title;
         const headerFontSize = this.fonts.hito;
-        const headerW = this.measureText(headerTitle, headerFontSize, '800') * 1.05 + this.dims.pad * 2;
-        const headerH = headerFontSize * LH + this.dims.pad * 2;
+        let headerW = d.customWidth || (this.measureText(headerTitle, headerFontSize, '800') * 1.05 + this.dims.pad * 2);
+        let headerH = headerFontSize * LH + this.dims.pad * 2;
+        if (d.customHeight && d.customHeight > 0) headerH = Math.max(d.customHeight, headerH);
         
         // Apply drag offsets
         const headerX = startX + (d.customOffsetX || 0);
         const headerY = currentY + (d.customOffsetY || 0);
 
         const headerCenterY = headerY + headerH / 2;
+        
+        let headerAlign = d.customTitleAlign || 'left';
+        let headerTextX = headerX + this.dims.pad;
+        let headerAnchor = 'start';
+        if (headerAlign === 'center') { headerTextX = headerX + headerW / 2; headerAnchor = 'middle'; }
+        else if (headerAlign === 'right') { headerTextX = headerX + headerW - this.dims.pad; headerAnchor = 'end'; }
 
         nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="course_title">`;
         nodesStr += `<rect x="${headerX}" y="${headerY}" width="${headerW}" height="${headerH}" rx="${this.dims.br}" fill="${this.colors.orange}" />`;
-        nodesStr += `<text x="${headerX + this.dims.pad}" y="${headerCenterY}" dy="0.1em" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${headerTitle}</text>`;
+        
+        if (d.richCourseTitle) {
+            const segments = parseHtmlToSegments(d.richCourseTitle);
+            const result = renderRichSvgText(segments, headerX + this.dims.pad, headerY, headerW - this.dims.pad * 2, { font: this.font, size: headerFontSize, weight: '800', color: this.colors.text, align: headerAlign }, this.ctx);
+            const textOffsetY = (headerH - result.height) / 2;
+            nodesStr += `<g transform="translate(0, ${textOffsetY})">${result.svg}</g>`;
+        } else {
+            nodesStr += `<text x="${headerTextX}" y="${headerCenterY}" dy="0.1em" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" text-anchor="${headerAnchor}" dominant-baseline="central">${headerTitle}</text>`;
+        }
+        
+        nodesStr += `<rect class="resize-handle-vis" data-resize-id="course_title" x="${headerX + headerW - 4}" y="${headerY + headerH/2 - 12}" width="8" height="24" rx="3" fill="#00E5FF" opacity="0" style="cursor:ew-resize" />`;
         nodesStr += `</g>`;
 
         const headerBox = { x: headerX, y: headerY, w: headerW, h: headerH, b: headerY + headerH, r: headerX + headerW };
@@ -2290,6 +2307,13 @@ class PaginaInicioRenderer {
             // Apply drag offsets
             const actHitoX = hitoX + (node.customOffsetX || 0);
             const actHitoY = currentY + (node.customOffsetY || 0);
+            const actHitoW = node.customWidth || this.hitoBoxW;
+            
+            let hitoAlign = node.customTitleAlign || 'left';
+            let hitoTextX = actHitoX + this.dims.pad;
+            let hitoAnchor = 'start';
+            if (hitoAlign === 'center') { hitoTextX = actHitoX + actHitoW / 2; hitoAnchor = 'middle'; }
+            else if (hitoAlign === 'right') { hitoTextX = actHitoX + actHitoW - this.dims.pad; hitoAnchor = 'end'; }
             
             let hitoTextSvg = '';
             let hitoCurY = actHitoY + this.dims.pad;
@@ -2297,13 +2321,13 @@ class PaginaInicioRenderer {
             if (showTitle) {
                 if (node.richTitle) {
                     const segments = parseHtmlToSegments(node.richTitle);
-                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeTitleSize, weight: '800', color: this.colors.text }, this.ctx);
+                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, actHitoW - this.dims.pad * 2, { font: nodeFont, size: nodeTitleSize, weight: '800', color: this.colors.text, align: hitoAlign }, this.ctx);
                     hitoTextSvg += result.svg;
                     hitoCurY += result.height;
                 } else {
                     const titleSlot = nodeTitleSize * LH;
                     const titleCY = hitoCurY + titleSlot / 2;
-                    hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${titleCY}" dy="0.1em" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" dominant-baseline="central">${hitoNum}</text>`;
+                    hitoTextSvg += `<text x="${hitoTextX}" y="${titleCY}" dy="0.1em" font-family="${nodeFont}" font-size="${nodeTitleSize}" fill="${this.colors.text}" font-weight="800" text-anchor="${hitoAnchor}" dominant-baseline="central">${hitoNum}</text>`;
                     hitoCurY += titleSlot;
                 }
             }
@@ -2311,27 +2335,35 @@ class PaginaInicioRenderer {
             if (showSub && hitoType) {
                 if (node.richSubtitle) {
                     const segments = parseHtmlToSegments(node.richSubtitle);
-                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, this.hitoBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeSubSize, weight: '400', color: this.colors.text }, this.ctx);
+                    const result = renderRichSvgText(segments, actHitoX + this.dims.pad, hitoCurY, actHitoW - this.dims.pad * 2, { font: nodeFont, size: nodeSubSize, weight: '400', color: this.colors.text, align: hitoAlign }, this.ctx);
                     hitoTextSvg += result.svg;
                     hitoCurY += result.height;
                 } else {
-                    const typeLines = this.wrapText(hitoType, nodeSubSize, '400', this.hitoBoxW - this.dims.pad * 2);
+                    const typeLines = this.wrapText(hitoType, nodeSubSize, '400', actHitoW - this.dims.pad * 2);
                     typeLines.forEach(line => {
                         const slot = nodeSubSize * LH;
                         const cy = hitoCurY + slot / 2;
-                        hitoTextSvg += `<text x="${actHitoX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeSubSize}" fill="${this.colors.text}" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
+                        hitoTextSvg += `<text x="${hitoTextX}" y="${cy}" font-family="${nodeFont}" font-size="${nodeSubSize}" fill="${this.colors.text}" font-weight="400" text-anchor="${hitoAnchor}" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
                         hitoCurY += slot;
                     });
                 }
             }
 
-            const hitoH = hitoCurY - actHitoY + this.dims.pad;
+            let hitoH = hitoCurY - actHitoY + this.dims.pad;
+            if (node.customHeight && node.customHeight > 0) hitoH = Math.max(node.customHeight, hitoH);
 
             // ── Subtitle dashed box ──
             
             // Apply drag offsets
             const actSubX = subX + (node.customSubOffsetX || 0);
             const actSubY = currentY + (node.customSubOffsetY || 0);
+            const actSubW = node.customSubWidth || this.subtitleBoxW;
+            
+            let subAlign = node.customTitleAlign || 'left';
+            let subTextX = actSubX + this.dims.pad;
+            let subAnchor = 'start';
+            if (subAlign === 'center') { subTextX = actSubX + actSubW / 2; subAnchor = 'middle'; }
+            else if (subAlign === 'right') { subTextX = actSubX + actSubW - this.dims.pad; subAnchor = 'end'; }
             
             let subTextSvg = '';
             let subCurY = actSubY + this.dims.pad;
@@ -2339,18 +2371,17 @@ class PaginaInicioRenderer {
             if (showDesc && subtitle) {
                 if (node.richDescription) {
                     const segments = parseHtmlToSegments(node.richDescription);
-                    const result = renderRichSvgText(segments, actSubX + this.dims.pad, subCurY, this.subtitleBoxW - this.dims.pad * 2, { font: nodeFont, size: nodeDescSize, weight: '400', color: '#333' }, this.ctx);
+                    const result = renderRichSvgText(segments, actSubX + this.dims.pad, subCurY, actSubW - this.dims.pad * 2, { font: nodeFont, size: nodeDescSize, weight: '400', color: '#333', align: subAlign }, this.ctx);
                     subTextSvg += result.svg;
                     subCurY += result.height;
                 } else {
-                    const subLines = this.wrapText(subtitle, nodeDescSize, '400', this.subtitleBoxW - this.dims.pad * 2);
+                    const subLines = this.wrapText(subtitle, nodeDescSize, '400', actSubW - this.dims.pad * 2);
                     subLines.forEach(line => {
                         const slot = nodeDescSize * LH;
                         const cy = subCurY + slot / 2;
-                        subTextSvg += `<text x="${actSubX + this.dims.pad}" y="${cy}" font-family="${nodeFont}" font-size="${nodeDescSize}" fill="#333" font-weight="400" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
+                        subTextSvg += `<text x="${subTextX}" y="${cy}" font-family="${nodeFont}" font-size="${nodeDescSize}" fill="#333" font-weight="400" text-anchor="${subAnchor}" dominant-baseline="central">${italicizeSvgText(line)}</text>`;
                         subCurY += slot;
                     });
-
                 }
             }
 
@@ -3569,10 +3600,29 @@ function renderStructurePanelPaginaInicio() {
 
     // Course title card
     const courseTitle = d.customTitle || d.title || '';
+    
+    // Controls for Course Title
+    const cTitleWidth = d.customWidth || '';
+    const cTitleHeight = d.customHeight || '';
+    const cTitleBorder = d.customBorderColor || '#F57C20';
+    const cTitleAlign = d.customTitleAlign || 'left';
+    const cTitleCtrls = `
+    <div class="container-controls">
+        <label>W<input type="number" class="ctrl-width" data-id="course_title" value="${cTitleWidth}" placeholder="auto" min="50" max="800" step="10"></label>
+        <label>H<input type="number" class="ctrl-height" data-id="course_title" value="${cTitleHeight}" placeholder="auto" min="20" max="600" step="5"></label>
+        <label>Borde<input type="color" class="ctrl-border-color" data-id="course_title" value="${cTitleBorder}"></label>
+        <div class="align-group">
+            <button class="align-btn${cTitleAlign === 'left' ? ' active' : ''}" data-id="course_title" data-align="left" title="Izquierda">⫷</button>
+            <button class="align-btn${cTitleAlign === 'center' ? ' active' : ''}" data-id="course_title" data-align="center" title="Centro">⬌</button>
+            <button class="align-btn${cTitleAlign === 'right' ? ' active' : ''}" data-id="course_title" data-align="right" title="Derecha">⫸</button>
+        </div>
+    </div>`;
+
     html += `<div class="structure-group">
         <div class="structure-card" data-id="course_title">
             <div class="structure-group-title">Título de Asignatura</div>
             <div class="card-collapsible-body">
+                ${cTitleCtrls}
                 ${createRichFieldHTML('pi-course-title', d.richCourseTitle || courseTitle, { placeholder: 'Nombre de asignatura...', font: val('s-font-family'), size: val('s-hito-font') })}
             </div>
         </div>
@@ -3605,6 +3655,23 @@ function renderStructurePanelPaginaInicio() {
             swatchesHtml += `</div>`;
         }
 
+        // Container controls for Hito
+        const curWidth = node.customWidth || '';
+        const curHeight = node.customHeight || '';
+        const curBorder = node.customBorderColor || '#F57C20';
+        const curAlign = node.customTitleAlign || 'left';
+        const hitoCtrls = `
+        <div class="container-controls">
+            <label>W<input type="number" class="ctrl-width" data-id="${node.id}" value="${curWidth}" placeholder="auto" min="50" max="800" step="10"></label>
+            <label>H<input type="number" class="ctrl-height" data-id="${node.id}" value="${curHeight}" placeholder="auto" min="20" max="600" step="5"></label>
+            <label>Borde<input type="color" class="ctrl-border-color" data-id="${node.id}" value="${curBorder}"></label>
+            <div class="align-group">
+                <button class="align-btn${curAlign === 'left' ? ' active' : ''}" data-id="${node.id}" data-align="left" title="Izquierda">⫷</button>
+                <button class="align-btn${curAlign === 'center' ? ' active' : ''}" data-id="${node.id}" data-align="center" title="Centro">⬌</button>
+                <button class="align-btn${curAlign === 'right' ? ' active' : ''}" data-id="${node.id}" data-align="right" title="Derecha">⫸</button>
+            </div>
+        </div>`;
+
         html += `<div class="structure-group">
             <div class="structure-card" data-id="${node.id}">
                 <div style="display:flex; align-items:center; margin-bottom:0.1rem;">
@@ -3612,6 +3679,7 @@ function renderStructurePanelPaginaInicio() {
                     ${swatchesHtml ? `<div style="display:flex; align-items:center; gap:0.4rem; margin-left:auto;">${swatchesHtml}</div>` : ''}
                 </div>
                 <div class="card-collapsible-body">
+                    ${hitoCtrls}
                     <div class="field-label">Título</div>
                     <div class="rich-field-row">
                         ${createRichFieldHTML('pi-' + node.id + '-title', node.richTitle || hitoTitle, { placeholder: 'Hito N...', font: node.customFont || val('s-font-family'), size: node.customTitleSize || val('s-hito-font') })}
@@ -3777,6 +3845,57 @@ function bindPaginaInicioPanelEvents() {
         });
     });
 
+
+    // ── Container Controls ──
+    list.querySelectorAll('.ctrl-width').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const v = parseInt(e.target.value);
+            const targetNode = id === 'course_title' ? d : d.nodes.find(n => n.id === id);
+            if (targetNode) {
+                targetNode.customWidth = v > 0 ? v : undefined;
+                if (!v) delete targetNode.customWidth;
+            }
+            renderDiagram(currentDiagramData, false);
+        });
+    });
+
+    list.querySelectorAll('.ctrl-height').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const v = parseInt(e.target.value);
+            const targetNode = id === 'course_title' ? d : d.nodes.find(n => n.id === id);
+            if (targetNode) {
+                if (v > 0) targetNode.customHeight = v;
+                else delete targetNode.customHeight;
+            }
+            renderDiagram(currentDiagramData, false);
+        });
+    });
+
+    list.querySelectorAll('.ctrl-border-color').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const color = e.target.value;
+            const targetNode = id === 'course_title' ? d : d.nodes.find(n => n.id === id);
+            if (targetNode) targetNode.customBorderColor = color;
+            renderDiagram(currentDiagramData, false);
+        });
+    });
+
+    list.querySelectorAll('.align-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            const align = e.currentTarget.getAttribute('data-align');
+            const targetNode = id === 'course_title' ? d : d.nodes.find(n => n.id === id);
+            if (targetNode) targetNode.customTitleAlign = align;
+            
+            const group = e.currentTarget.closest('.align-group');
+            if (group) group.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            renderDiagram(currentDiagramData, false);
+        });
+    });
 
     // openNodeEditor for Página de Inicio
     window.openNodeEditor = function(id) {
