@@ -2223,9 +2223,15 @@ class PaginaInicioRenderer {
         const headerFontSize = this.fonts.hito;
         const pad = this.dims.pad;
 
-        // Width: use class measureText (includes 1.08 safety) + equal padding left & right
+        // Width: cache auto-calculated value to prevent font-loading jitter on tab switch
         const headerTextW = this.measureText(headerTitle, headerFontSize, '800');
-        let headerW = d.customWidth || (headerTextW + pad * 2);
+        const autoW = headerTextW + pad * 2;
+        // Cache: store auto width on first calc, update if title changed
+        if (!d._autoHeaderW || d._autoHeaderTitle !== headerTitle) {
+            d._autoHeaderW = autoW;
+            d._autoHeaderTitle = headerTitle;
+        }
+        let headerW = d.customWidth || d._autoHeaderW;
         // Height: fontSize + equal padding top & bottom
         let headerH = d.customHeight || (headerFontSize + pad * 2);
         
@@ -2272,21 +2278,39 @@ class PaginaInicioRenderer {
         const minHitoW = this.hitoBoxW; // user setting as minimum
         let autoHitoW = minHitoW;
         let maxActualHitoW = autoHitoW; // tracks max width including customWidth
-        d.nodes.forEach(node => {
-            const nt = node.text || {};
-            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
-            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
-            const titleW = this.measureText(hitoNum, this.fonts.title, '800') + (this.dims.pad * 2);
-            if (titleW > autoHitoW) autoHitoW = titleW;
-            if (hitoType) {
-                const typeW = this.measureText(hitoType, this.fonts.subtitle, '400') + (this.dims.pad * 2);
-                if (typeW > autoHitoW) autoHitoW = typeW;
-            }
-            // Track the actual width each node will use (customWidth overrides auto)
-            const nodeActW = node.customWidth || Math.ceil(autoHitoW);
-            if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
-        });
-        this.hitoBoxW = Math.ceil(autoHitoW);
+        // Build a signature of all titles to detect if recalc is needed
+        const titleSig = d.nodes.map(n => {
+            const nt = n.text || {};
+            return (n.customTitle !== undefined ? n.customTitle : `Hito ${nt.hitoNum || ''}`) + '|' + (n.customSubtitle !== undefined ? n.customSubtitle : (nt.hitoType || ''));
+        }).join(';;');
+        
+        const needsRecalc = !d._autoHitoW || d._autoHitoSig !== titleSig;
+        
+        if (needsRecalc) {
+            d.nodes.forEach(node => {
+                const nt = node.text || {};
+                const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
+                const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
+                const titleW = this.measureText(hitoNum, this.fonts.title, '800') + (this.dims.pad * 2);
+                if (titleW > autoHitoW) autoHitoW = titleW;
+                if (hitoType) {
+                    const typeW = this.measureText(hitoType, this.fonts.subtitle, '400') + (this.dims.pad * 2);
+                    if (typeW > autoHitoW) autoHitoW = typeW;
+                }
+                const nodeActW = node.customWidth || Math.ceil(autoHitoW);
+                if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
+            });
+            d._autoHitoW = Math.ceil(autoHitoW);
+            d._autoHitoSig = titleSig;
+        } else {
+            autoHitoW = d._autoHitoW;
+            // Still need to compute maxActualHitoW for layout
+            d.nodes.forEach(node => {
+                const nodeActW = node.customWidth || d._autoHitoW;
+                if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
+            });
+        }
+        this.hitoBoxW = d._autoHitoW;
         // Use the max actual width (including customWidth) for layout positioning
         const layoutHitoW = Math.max(this.hitoBoxW, maxActualHitoW);
 
