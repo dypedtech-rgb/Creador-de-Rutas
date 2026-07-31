@@ -2393,7 +2393,6 @@ class PaginaInicioRenderer {
             const subYOffset = actSubY + (rowH - subH) / 2;
 
             // Draw hito blue box
-            const actHitoW = node.customWidth || this.hitoBoxW;
             nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}">`;
             nodesStr += `<rect x="${actHitoX}" y="${hitoYOffset}" width="${actHitoW}" height="${hitoH}" rx="${this.dims.br}" fill="${bgColor}" stroke="${borderColor}" stroke-width="${this.dims.bw}" />`;
             // Text is already offset by actHitoY + this.dims.pad in rendering, we just need to shift it to center
@@ -2406,7 +2405,6 @@ class PaginaInicioRenderer {
             nodesStr += `</g>`;
 
             // Draw subtitle dashed box
-            const actSubW = node.customSubWidth || this.subtitleBoxW;
             if (showDesc) {
                 nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}_sub">`;
                 nodesStr += `<rect x="${actSubX}" y="${subYOffset}" width="${actSubW}" height="${subH}" rx="${this.dims.br}" fill="${this.colors.subBoxBg}" stroke="${this.colors.subBox}" stroke-width="${this.dims.bw}" />`;
