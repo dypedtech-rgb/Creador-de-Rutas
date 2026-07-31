@@ -2264,8 +2264,9 @@ class PaginaInicioRenderer {
         const minHitoW = this.hitoBoxW; // user setting as minimum
         let autoHitoW = minHitoW;
         d.nodes.forEach(node => {
-            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${node.text.hitoNum}`;
-            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : node.text.hitoType;
+            const nt = node.text || {};
+            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
+            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
             const titleW = this.measureText(hitoNum, this.fonts.title, '800') + (this.dims.pad * 2);
             if (titleW > autoHitoW) autoHitoW = titleW;
             if (hitoType) {
@@ -2287,9 +2288,10 @@ class PaginaInicioRenderer {
 
         // ── 2. Draw each Hito row ──
         d.nodes.forEach((node, idx) => {
-            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${node.text.hitoNum}`;
-            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : node.text.hitoType;
-            const subtitle = node.customDescription !== undefined ? node.customDescription : node.text.subtitle;
+            const nt = node.text || {};
+            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || (idx + 1)}`;
+            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
+            const subtitle = node.customDescription !== undefined ? node.customDescription : (nt.subtitle || '');
 
             const showTitle = !node.hiddenTitle;
             const showSub = !node.hiddenSubtitle;
@@ -3628,9 +3630,10 @@ function renderStructurePanelPaginaInicio() {
 
     // Each Hito (diagram section)
     d.nodes.forEach((node, idx) => {
-        const hitoTitle = (node.customTitle !== undefined ? node.customTitle : `Hito ${node.text.hitoNum}`).replace(/"/g, '&quot;');
-        const hitoType = (node.customSubtitle !== undefined ? node.customSubtitle : node.text.hitoType).replace(/"/g, '&quot;');
-        const subtitle = (node.customDescription !== undefined ? node.customDescription : node.text.subtitle).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const nt = node.text || {};
+        const hitoTitle = (node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || (idx + 1)}`).replace(/"/g, '&quot;');
+        const hitoType = (node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '')).replace(/"/g, '&quot;');
+        const subtitle = (node.customDescription !== undefined ? node.customDescription : (nt.subtitle || '')).replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
         // Swatches — only for Hito 1
         let swatchesHtml = '';
@@ -3712,8 +3715,10 @@ function renderStructurePanelPaginaInicio() {
     </div>`;
 
     d.nodes.forEach((node, idx) => {
-        const cardBody = node.richCardBody || node.text.cardBody || '';
-        const cardQuestion = node.richCardQuestion || node.text.cardQuestion || '';
+        const nt = node.text || {};
+        const nc = node.card || {};
+        const cardBody = node.richCardBody || nt.cardBody || nc.body || '';
+        const cardQuestion = node.richCardQuestion || nt.cardQuestion || nc.question || '';
         const nodeFont = node.customFont || val('s-font-family');
 
         html += `<div class="structure-group">
