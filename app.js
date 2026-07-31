@@ -1900,7 +1900,12 @@ class SVGRenderer {
 
         // ── Phase 2: Calculate box height & vertical centering offset ──
         contentH = curY;
-        const boxH = contentH + this.dims.pad * 2;
+        // Allow customHeight to override the auto-calculated height.
+        // Clamp to contentH minimum so text never clips outside the box.
+        const autoBoxH = contentH + this.dims.pad * 2;
+        const boxH = (nodeData && nodeData.customHeight && nodeData.customHeight > 0)
+            ? Math.max(nodeData.customHeight, contentH)
+            : autoBoxH;
         
         // Offset to vertically center content within the box
         const textOffsetY = y + (boxH - contentH) / 2;
@@ -3253,13 +3258,15 @@ function renderStructurePanel() {
         const eyeOpenSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
         const eyeClosedSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-        // Container controls row (width, border color, alignment)
+        // Container controls row (width, height, border color, alignment)
         const curWidth = node.customWidth || '';
+        const curHeight = node.customHeight || '';
         const curBorder = node.customBorderColor || val('s-border-color') || '#F57C20';
         const curAlign = node.customTitleAlign || 'left';
         const containerCtrlsHtml = `
         <div class="container-controls">
             <label>W<input type="number" class="ctrl-width" data-id="${node.id}" value="${curWidth}" placeholder="auto" min="50" max="800" step="10"></label>
+            <label>H<input type="number" class="ctrl-height" data-id="${node.id}" value="${curHeight}" placeholder="auto" min="20" max="600" step="5"></label>
             <label>Borde<input type="color" class="ctrl-border-color" data-id="${node.id}" value="${curBorder}"></label>
             <div class="align-group">
                 <button class="align-btn${curAlign === 'left' ? ' active' : ''}" data-id="${node.id}" data-align="left" title="Izquierda">⫷</button>
@@ -3398,6 +3405,29 @@ function bindStructurePanelEvents() {
                     
                     if (currId !== id) {
                         const relatedInput = list.querySelector(`.ctrl-width[data-id="${currId}"]`);
+                        if (relatedInput) relatedInput.value = v > 0 ? v : '';
+                    }
+                }
+            });
+            renderDiagram(currentDiagramData, false);
+        });
+    });
+
+    // Height
+    list.querySelectorAll('.ctrl-height').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const v = parseInt(e.target.value);
+            getActiveIds(id).forEach(currId => {
+                const targetInfo = findParentAndNode(rootNode, currId);
+                if (targetInfo && targetInfo.node) {
+                    if (v > 0) {
+                        targetInfo.node.customHeight = v;
+                    } else {
+                        delete targetInfo.node.customHeight;
+                    }
+                    if (currId !== id) {
+                        const relatedInput = list.querySelector(`.ctrl-height[data-id="${currId}"]`);
                         if (relatedInput) relatedInput.value = v > 0 ? v : '';
                     }
                 }
