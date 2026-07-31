@@ -2263,6 +2263,7 @@ class PaginaInicioRenderer {
         // Auto-fit: measure all Hito titles/subtitles to determine maximum box width
         const minHitoW = this.hitoBoxW; // user setting as minimum
         let autoHitoW = minHitoW;
+        let maxActualHitoW = autoHitoW; // tracks max width including customWidth
         d.nodes.forEach(node => {
             const nt = node.text || {};
             const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
@@ -2273,12 +2274,17 @@ class PaginaInicioRenderer {
                 const typeW = this.measureText(hitoType, this.fonts.subtitle, '400') + (this.dims.pad * 2);
                 if (typeW > autoHitoW) autoHitoW = typeW;
             }
+            // Track the actual width each node will use (customWidth overrides auto)
+            const nodeActW = node.customWidth || Math.ceil(autoHitoW);
+            if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
         });
         this.hitoBoxW = Math.ceil(autoHitoW);
+        // Use the max actual width (including customWidth) for layout positioning
+        const layoutHitoW = Math.max(this.hitoBoxW, maxActualHitoW);
 
-        // Subtitle box X (after hito box + gap)
+        // Subtitle box X (after hito box + gap) — uses layoutHitoW so it adapts to customWidth
         const subGap = 75;
-        const subX = hitoX + this.hitoBoxW + subGap;
+        const subX = hitoX + layoutHitoW + subGap;
         // Auto-calc subtitle box width to fill remaining canvas
         this.subtitleBoxW = Math.max(200, this.totalWidth - subX - this.padding);
 
@@ -2317,6 +2323,7 @@ class PaginaInicioRenderer {
             if (hitoAlign === 'center') { hitoTextX = actHitoX + actHitoW / 2; hitoAnchor = 'middle'; }
             else if (hitoAlign === 'right') { hitoTextX = actHitoX + actHitoW - this.dims.pad; hitoAnchor = 'end'; }
             
+            // Render hito text content to measure its natural height
             let hitoTextSvg = '';
             let hitoCurY = actHitoY + this.dims.pad;
 
@@ -2351,8 +2358,10 @@ class PaginaInicioRenderer {
                 }
             }
 
-            let hitoH = hitoCurY - actHitoY + this.dims.pad;
-            if (node.customHeight && node.customHeight > 0) hitoH = Math.max(node.customHeight, hitoH);
+            // Natural content height
+            const hitoContentH = hitoCurY - actHitoY + this.dims.pad;
+            let hitoH = hitoContentH;
+            if (node.customHeight && node.customHeight > 0) hitoH = Math.max(node.customHeight, hitoContentH);
 
             // ── Subtitle dashed box ──
             
@@ -2387,18 +2396,24 @@ class PaginaInicioRenderer {
                 }
             }
 
-            const subH = showDesc ? (subCurY - actSubY + this.dims.pad) : 0;
+            const subContentH = subCurY - actSubY + this.dims.pad;
+            const subH = showDesc ? subContentH : 0;
             const rowH = Math.max(hitoH, subH);
 
-            // Center smaller box vertically
+            // Center smaller box vertically within the row
             const hitoYOffset = actHitoY + (rowH - hitoH) / 2;
             const subYOffset = actSubY + (rowH - subH) / 2;
+
+            // ── Vertical centering of TEXT within box ──
+            // If the box is taller than its content (due to customHeight or row matching),
+            // shift the text group down to vertically center it inside the box.
+            const hitoTextVCenter = (hitoH - hitoContentH) / 2;
 
             // Draw hito blue box
             nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}">`;
             nodesStr += `<rect x="${actHitoX}" y="${hitoYOffset}" width="${actHitoW}" height="${hitoH}" rx="${this.dims.br}" fill="${bgColor}" stroke="${borderColor}" stroke-width="${this.dims.bw}" />`;
-            // Text is already offset by actHitoY + this.dims.pad in rendering, we just need to shift it to center
-            const hShift = hitoYOffset - actHitoY;
+            // Shift text: first to match box vertical position, then center within box
+            const hShift = (hitoYOffset - actHitoY) + hitoTextVCenter;
             nodesStr += `<g transform="translate(0, ${hShift})">`;
             nodesStr += hitoTextSvg;
             nodesStr += `</g>`;
@@ -2406,11 +2421,14 @@ class PaginaInicioRenderer {
             nodesStr += `<rect class="resize-handle-vis" data-resize-id="${node.id}" x="${actHitoX + actHitoW - 4}" y="${hitoYOffset + hitoH/2 - 12}" width="8" height="24" rx="3" fill="#00E5FF" opacity="0" style="cursor:ew-resize" />`;
             nodesStr += `</g>`;
 
+            // ── Vertical centering of TEXT within subtitle box ──
+            const subTextVCenter = showDesc ? (subH - subContentH) / 2 : 0;
+
             // Draw subtitle dashed box
             if (showDesc) {
                 nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="${node.id}_sub">`;
                 nodesStr += `<rect x="${actSubX}" y="${subYOffset}" width="${actSubW}" height="${subH}" rx="${this.dims.br}" fill="${this.colors.subBoxBg}" stroke="${this.colors.subBox}" stroke-width="${this.dims.bw}" />`;
-                const sShift = subYOffset - actSubY;
+                const sShift = (subYOffset - actSubY) + subTextVCenter;
                 nodesStr += `<g transform="translate(0, ${sShift})">`;
                 nodesStr += subTextSvg;
                 nodesStr += `</g>`;
