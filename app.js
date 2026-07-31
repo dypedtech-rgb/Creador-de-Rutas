@@ -2219,37 +2219,38 @@ class PaginaInicioRenderer {
         // ── 1. Draw course title header (orange box) ──
         const headerTitle = d.customTitle || d.title;
         const headerFontSize = this.fonts.hito;
-        // Width: measured text + symmetric padding on both sides (no extra safety factor)
-        const measuredHeaderW = this.ctx.font = `800 ${headerFontSize}px ${this.font}`,
-              rawHeaderTextW = this.ctx.measureText(headerTitle).width;
-        let headerW = d.customWidth || (rawHeaderTextW + this.dims.pad * 2);
-        // Height: font size + symmetric padding (no LH multiplier — pad provides enough breathing room)
-        let headerH = headerFontSize + this.dims.pad * 2;
-        if (d.customHeight && d.customHeight > 0) headerH = Math.max(d.customHeight, headerH);
+        const pad = this.dims.pad;
+
+        // Width: use class measureText (includes 1.08 safety) + equal padding left & right
+        const headerTextW = this.measureText(headerTitle, headerFontSize, '800');
+        let headerW = d.customWidth || (headerTextW + pad * 2);
+        // Height: fontSize + equal padding top & bottom
+        let headerH = d.customHeight || (headerFontSize + pad * 2);
         
         // Apply drag offsets
         const headerX = startX + (d.customOffsetX || 0);
         const headerY = currentY + (d.customOffsetY || 0);
-
         const headerCenterY = headerY + headerH / 2;
         
-        // Default to center alignment for header for symmetric appearance
-        let headerAlign = d.customTitleAlign || 'center';
-        let headerTextX = headerX + headerW / 2;
-        let headerAnchor = 'middle';
-        if (headerAlign === 'left') { headerTextX = headerX + this.dims.pad; headerAnchor = 'start'; }
-        else if (headerAlign === 'right') { headerTextX = headerX + headerW - this.dims.pad; headerAnchor = 'end'; }
+        // Left-aligned by default (user preference)
+        let headerAlign = d.customTitleAlign || 'left';
+        let headerTextX = headerX + pad;
+        let headerAnchor = 'start';
+        if (headerAlign === 'center') { headerTextX = headerX + headerW / 2; headerAnchor = 'middle'; }
+        else if (headerAlign === 'right') { headerTextX = headerX + headerW - pad; headerAnchor = 'end'; }
 
         nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="course_title">`;
         nodesStr += `<rect x="${headerX}" y="${headerY}" width="${headerW}" height="${headerH}" rx="${this.dims.br}" fill="${this.colors.orange}" />`;
         
         if (d.richCourseTitle) {
             const segments = parseHtmlToSegments(d.richCourseTitle);
-            const result = renderRichSvgText(segments, headerX + this.dims.pad, headerY, headerW - this.dims.pad * 2, { font: this.font, size: headerFontSize, weight: '800', color: this.colors.text, align: headerAlign }, this.ctx);
+            const result = renderRichSvgText(segments, headerX + pad, headerY, headerW - pad * 2, { font: this.font, size: headerFontSize, weight: '800', color: this.colors.text, align: headerAlign }, this.ctx);
+            // Center rich text vertically within the box
             const textOffsetY = (headerH - result.height) / 2;
             nodesStr += `<g transform="translate(0, ${textOffsetY})">${result.svg}</g>`;
         } else {
-            nodesStr += `<text x="${headerTextX}" y="${headerCenterY}" dy="0.1em" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" text-anchor="${headerAnchor}" dominant-baseline="central">${headerTitle}</text>`;
+            // Plain text: centered vertically via dominant-baseline, no dy offset
+            nodesStr += `<text x="${headerTextX}" y="${headerCenterY}" font-family="${this.font}" font-size="${headerFontSize}" fill="${this.colors.text}" font-weight="800" text-anchor="${headerAnchor}" dominant-baseline="central">${headerTitle}</text>`;
         }
         
         nodesStr += `<rect class="resize-handle-vis" data-resize-id="course_title" x="${headerX + headerW - 4}" y="${headerY + headerH/2 - 12}" width="8" height="24" rx="3" fill="#00E5FF" opacity="0" style="cursor:ew-resize" />`;
@@ -3628,7 +3629,7 @@ function renderStructurePanelPaginaInicio() {
     const cTitleWidth = d.customWidth || '';
     const cTitleHeight = d.customHeight || '';
     const cTitleBorder = d.customBorderColor || '#F57C20';
-    const cTitleAlign = d.customTitleAlign || 'center';
+    const cTitleAlign = d.customTitleAlign || 'left';
     const cTitleCtrls = `
     <div class="container-controls">
         <label>W<input type="number" class="ctrl-width" data-id="course_title" value="${cTitleWidth}" placeholder="auto" min="50" max="800" step="10"></label>
