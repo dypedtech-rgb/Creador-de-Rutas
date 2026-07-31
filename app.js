@@ -1840,9 +1840,11 @@ class SVGRenderer {
 
         if (isHito) {
             if (!nodeData || !nodeData.customWidth) {
-                actualWidth = this.measureText(titleLines[0], nodeTitleSize, '800') * 1.05 + (this.dims.pad * 2);
+                // measureText includes 1.08 safety — no extra factor needed
+                actualWidth = this.measureText(titleLines[0], nodeTitleSize, '800') + (this.dims.pad * 2);
             }
-            curY += addText(textX, nodeTitleSize, '800', titleLines[0], ' dy="0.1em"');
+            // No dy offset — vertical centering is handled by Phase 2
+            curY += addText(textX, nodeTitleSize, '800', titleLines[0]);
         } else {
             if (showTitle) {
                 if (hasRichTitle) {
