@@ -2219,7 +2219,10 @@ class PaginaInicioRenderer {
         // ── 1. Draw course title header (orange box) ──
         const headerTitle = d.customTitle || d.title;
         const headerFontSize = this.fonts.hito;
-        let headerW = d.customWidth || (this.measureText(headerTitle, headerFontSize, '800') * 1.05 + this.dims.pad * 2);
+        // Width: measured text + symmetric padding on both sides (no extra safety factor)
+        const measuredHeaderW = this.ctx.font = `800 ${headerFontSize}px ${this.font}`,
+              rawHeaderTextW = this.ctx.measureText(headerTitle).width;
+        let headerW = d.customWidth || (rawHeaderTextW + this.dims.pad * 2);
         let headerH = headerFontSize * LH + this.dims.pad * 2;
         if (d.customHeight && d.customHeight > 0) headerH = Math.max(d.customHeight, headerH);
         
@@ -2229,10 +2232,11 @@ class PaginaInicioRenderer {
 
         const headerCenterY = headerY + headerH / 2;
         
-        let headerAlign = d.customTitleAlign || 'left';
-        let headerTextX = headerX + this.dims.pad;
-        let headerAnchor = 'start';
-        if (headerAlign === 'center') { headerTextX = headerX + headerW / 2; headerAnchor = 'middle'; }
+        // Default to center alignment for header for symmetric appearance
+        let headerAlign = d.customTitleAlign || 'center';
+        let headerTextX = headerX + headerW / 2;
+        let headerAnchor = 'middle';
+        if (headerAlign === 'left') { headerTextX = headerX + this.dims.pad; headerAnchor = 'start'; }
         else if (headerAlign === 'right') { headerTextX = headerX + headerW - this.dims.pad; headerAnchor = 'end'; }
 
         nodesStr += `<g class="interactive-node" style="cursor:pointer" data-node-id="course_title">`;
@@ -3623,7 +3627,7 @@ function renderStructurePanelPaginaInicio() {
     const cTitleWidth = d.customWidth || '';
     const cTitleHeight = d.customHeight || '';
     const cTitleBorder = d.customBorderColor || '#F57C20';
-    const cTitleAlign = d.customTitleAlign || 'left';
+    const cTitleAlign = d.customTitleAlign || 'center';
     const cTitleCtrls = `
     <div class="container-controls">
         <label>W<input type="number" class="ctrl-width" data-id="course_title" value="${cTitleWidth}" placeholder="auto" min="50" max="800" step="10"></label>
