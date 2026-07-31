@@ -2223,7 +2223,8 @@ class PaginaInicioRenderer {
         const measuredHeaderW = this.ctx.font = `800 ${headerFontSize}px ${this.font}`,
               rawHeaderTextW = this.ctx.measureText(headerTitle).width;
         let headerW = d.customWidth || (rawHeaderTextW + this.dims.pad * 2);
-        let headerH = headerFontSize * LH + this.dims.pad * 2;
+        // Height: font size + symmetric padding (no LH multiplier — pad provides enough breathing room)
+        let headerH = headerFontSize + this.dims.pad * 2;
         if (d.customHeight && d.customHeight > 0) headerH = Math.max(d.customHeight, headerH);
         
         // Apply drag offsets
