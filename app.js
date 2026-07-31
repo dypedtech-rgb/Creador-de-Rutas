@@ -1746,7 +1746,11 @@ class SVGRenderer {
 
     measureText(text, fontSize, fontWeight = 'normal') {
         this.ctx.font = `${fontWeight} ${fontSize}px ${this.font}`;
-        return this.ctx.measureText(text).width * SVGRenderer.MEASURE_SAFETY;
+        const raw = this.ctx.measureText(text).width;
+        // Only apply safety factor when web font hasn't loaded yet (fallback is narrower)
+        const fontSpec = `${fontWeight} ${fontSize}px ${this.font.split(',')[0].trim()}`;
+        const fontReady = document.fonts && document.fonts.check(fontSpec);
+        return fontReady ? raw : raw * SVGRenderer.MEASURE_SAFETY;
     }
 
     wrapText(text, fontSize, fontWeight, maxWidth) {
@@ -2185,7 +2189,11 @@ class PaginaInicioRenderer {
 
     measureText(text, fontSize, fontWeight = 'normal') {
         this.ctx.font = `${fontWeight} ${fontSize}px ${this.font}`;
-        return this.ctx.measureText(text).width * PaginaInicioRenderer.MEASURE_SAFETY;
+        const raw = this.ctx.measureText(text).width;
+        // Only apply safety factor when web font hasn't loaded yet (fallback is narrower)
+        const fontSpec = `${fontWeight} ${fontSize}px ${this.font.split(',')[0].trim()}`;
+        const fontReady = document.fonts && document.fonts.check(fontSpec);
+        return fontReady ? raw : raw * PaginaInicioRenderer.MEASURE_SAFETY;
     }
 
     wrapText(text, fontSize, fontWeight, maxWidth) {
@@ -2223,15 +2231,9 @@ class PaginaInicioRenderer {
         const headerFontSize = this.fonts.hito;
         const pad = this.dims.pad;
 
-        // Width: cache auto-calculated value to prevent font-loading jitter on tab switch
+        // Width: measureText now handles font-loading detection internally
         const headerTextW = this.measureText(headerTitle, headerFontSize, '800');
-        const autoW = headerTextW + pad * 2;
-        // Cache: store auto width on first calc, update if title changed
-        if (!d._autoHeaderW || d._autoHeaderTitle !== headerTitle) {
-            d._autoHeaderW = autoW;
-            d._autoHeaderTitle = headerTitle;
-        }
-        let headerW = d.customWidth || d._autoHeaderW;
+        let headerW = d.customWidth || (headerTextW + pad * 2);
         // Height: fontSize + equal padding top & bottom
         let headerH = d.customHeight || (headerFontSize + pad * 2);
         
@@ -2275,42 +2277,24 @@ class PaginaInicioRenderer {
         const hitoX = trunkX + r + 15;
 
         // Auto-fit: measure all Hito titles/subtitles to determine maximum box width
+        // measureText now handles font-loading detection internally, so measurements are consistent
         const minHitoW = this.hitoBoxW; // user setting as minimum
         let autoHitoW = minHitoW;
         let maxActualHitoW = autoHitoW; // tracks max width including customWidth
-        // Build a signature of all titles to detect if recalc is needed
-        const titleSig = d.nodes.map(n => {
-            const nt = n.text || {};
-            return (n.customTitle !== undefined ? n.customTitle : `Hito ${nt.hitoNum || ''}`) + '|' + (n.customSubtitle !== undefined ? n.customSubtitle : (nt.hitoType || ''));
-        }).join(';;');
-        
-        const needsRecalc = !d._autoHitoW || d._autoHitoSig !== titleSig;
-        
-        if (needsRecalc) {
-            d.nodes.forEach(node => {
-                const nt = node.text || {};
-                const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
-                const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
-                const titleW = this.measureText(hitoNum, this.fonts.title, '800') + (this.dims.pad * 2);
-                if (titleW > autoHitoW) autoHitoW = titleW;
-                if (hitoType) {
-                    const typeW = this.measureText(hitoType, this.fonts.subtitle, '400') + (this.dims.pad * 2);
-                    if (typeW > autoHitoW) autoHitoW = typeW;
-                }
-                const nodeActW = node.customWidth || Math.ceil(autoHitoW);
-                if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
-            });
-            d._autoHitoW = Math.ceil(autoHitoW);
-            d._autoHitoSig = titleSig;
-        } else {
-            autoHitoW = d._autoHitoW;
-            // Still need to compute maxActualHitoW for layout
-            d.nodes.forEach(node => {
-                const nodeActW = node.customWidth || d._autoHitoW;
-                if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
-            });
-        }
-        this.hitoBoxW = d._autoHitoW;
+        d.nodes.forEach(node => {
+            const nt = node.text || {};
+            const hitoNum = node.customTitle !== undefined ? node.customTitle : `Hito ${nt.hitoNum || ''}`;
+            const hitoType = node.customSubtitle !== undefined ? node.customSubtitle : (nt.hitoType || '');
+            const titleW = this.measureText(hitoNum, this.fonts.title, '800') + (this.dims.pad * 2);
+            if (titleW > autoHitoW) autoHitoW = titleW;
+            if (hitoType) {
+                const typeW = this.measureText(hitoType, this.fonts.subtitle, '400') + (this.dims.pad * 2);
+                if (typeW > autoHitoW) autoHitoW = typeW;
+            }
+            const nodeActW = node.customWidth || Math.ceil(autoHitoW);
+            if (nodeActW > maxActualHitoW) maxActualHitoW = nodeActW;
+        });
+        this.hitoBoxW = Math.ceil(autoHitoW);
         // Use the max actual width (including customWidth) for layout positioning
         const layoutHitoW = Math.max(this.hitoBoxW, maxActualHitoW);
 
