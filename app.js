@@ -2190,10 +2190,9 @@ class PaginaInicioRenderer {
     measureText(text, fontSize, fontWeight = 'normal') {
         this.ctx.font = `${fontWeight} ${fontSize}px ${this.font}`;
         const raw = this.ctx.measureText(text).width;
-        // Only apply safety factor when web font hasn't loaded yet (fallback is narrower)
-        const fontSpec = `${fontWeight} ${fontSize}px ${this.font.split(',')[0].trim()}`;
-        const fontReady = document.fonts && document.fonts.check(fontSpec);
-        return fontReady ? raw : raw * PaginaInicioRenderer.MEASURE_SAFETY;
+        // Always apply safety factor so width matches renderRichSvgText's internal 1.08x per-word
+        // measurement. Without this, font-loaded measurements underestimate width and the title wraps.
+        return raw * PaginaInicioRenderer.MEASURE_SAFETY;
     }
 
     wrapText(text, fontSize, fontWeight, maxWidth) {
@@ -5020,19 +5019,24 @@ const ResizeManager = {
 
                 // Pagina de inicio stores widths directly differently due to subtitle boxes
                 if (this.isPI) {
-                    let isSub = false;
-                    let searchId = id;
-                    if (id.endsWith('_sub')) {
-                        isSub = true;
-                        searchId = id.replace(/_sub$/, '');
-                    }
-                    
-                    const rootNodes = currentDiagramData.diagram.nodes || [];
-                    for (const node of rootNodes) {
-                        if (node.id === searchId) {
-                            if (isSub) node.customSubWidth = finalW;
-                            else node.customWidth = finalW;
-                            break;
+                    // Special case: course_title lives at diagram level, not inside nodes[]
+                    if (id === 'course_title') {
+                        currentDiagramData.diagram.customWidth = finalW;
+                    } else {
+                        let isSub = false;
+                        let searchId = id;
+                        if (id.endsWith('_sub')) {
+                            isSub = true;
+                            searchId = id.replace(/_sub$/, '');
+                        }
+                        
+                        const rootNodes = currentDiagramData.diagram.nodes || [];
+                        for (const node of rootNodes) {
+                            if (node.id === searchId) {
+                                if (isSub) node.customSubWidth = finalW;
+                                else node.customWidth = finalW;
+                                break;
+                            }
                         }
                     }
                 } else {
