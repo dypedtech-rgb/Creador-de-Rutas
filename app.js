@@ -1481,16 +1481,19 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
         const fw = w.bold ? '700' : defWeight;
         const fi = w.italic ? 'italic ' : '';
         measureCtx.font = `${fi}${fw} ${fontSize}px ${fontFamily}`;
-        const ww = measureCtx.measureText(w.text).width * SAFETY;
+        // Use raw width (no SAFETY) for wrap decisions so per-word measurements
+        // don't compound and cause premature wrapping when the user constrains the box width.
+        // SAFETY is only needed for visual overflow prevention in the SVG output, not for wrap logic.
+        const rawW = measureCtx.measureText(w.text).width;
         const isSpc = /^\s+$/.test(w.text);
-        if (!isSpc && lw + ww > maxWidth + 10 && lines[lines.length - 1].length > 0) {
+        if (!isSpc && lw + rawW > maxWidth && lines[lines.length - 1].length > 0) {
             const cl = lines[lines.length - 1];
             while (cl.length && /^\s+$/.test(cl[cl.length - 1].text)) cl.pop();
             lines.push([]);
             lw = 0;
         }
         lines[lines.length - 1].push(w);
-        lw += ww;
+        lw += rawW;
     }
     let svgStr = '', curY = y;
     const slotH = fontSize * LH;
