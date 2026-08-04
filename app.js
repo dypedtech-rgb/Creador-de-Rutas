@@ -1500,11 +1500,11 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
         let tspans = '', buf = '', prevKey = null;
         for (const w of line) {
             const key = (w.bold ? 'b' : '') + (w.italic ? 'i' : '');
-            if (prevKey !== null && prevKey !== key) { tspans += _buildRichTspan(buf, prevKey, defWeight); buf = ''; }
+            if (prevKey !== null && prevKey !== key) { tspans += _buildRichTspan(buf, prevKey, defWeight, defaults.disableAutoItalic); buf = ''; }
             buf += w.text;
             prevKey = key;
         }
-        if (buf) tspans += _buildRichTspan(buf, prevKey, defWeight);
+        if (buf) tspans += _buildRichTspan(buf, prevKey, defWeight, defaults.disableAutoItalic);
         
         let ax = x, anchor = 'start';
         if (align === 'center') { ax = x + maxWidth / 2; anchor = 'middle'; }
@@ -1516,13 +1516,13 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
     return { svg: svgStr, height: curY - y };
 }
 
-function _buildRichTspan(text, styleKey, defWeight) {
+function _buildRichTspan(text, styleKey, defWeight, disableAutoItalic) {
     const isBold = styleKey && styleKey.includes('b');
     const isItalic = styleKey && styleKey.includes('i');
     let attrs = ` font-weight="${isBold ? '700' : defWeight}"`;
     if (isItalic) attrs += ` font-style="italic"`;
     const escaped = escXml(text);
-    const content = isItalic ? escaped : italicizeSvgText(escaped);
+    const content = (isItalic || disableAutoItalic) ? escaped : italicizeSvgText(escaped);
     return `<tspan${attrs}>${content}</tspan>`;
 }
 
@@ -2253,7 +2253,7 @@ class PaginaInicioRenderer {
         
         if (d.richCourseTitle) {
             const segments = parseHtmlToSegments(d.richCourseTitle);
-            const result = renderRichSvgText(segments, headerX + pad, headerY, headerW - pad * 2, { font: this.font, size: headerFontSize, weight: '800', color: this.colors.text, align: headerAlign }, this.ctx);
+            const result = renderRichSvgText(segments, headerX + pad, headerY, headerW - pad * 2, { font: this.font, size: headerFontSize, weight: '800', color: this.colors.text, align: headerAlign, disableAutoItalic: true }, this.ctx);
             // Center rich text vertically within the box
             const textOffsetY = (headerH - result.height) / 2;
             nodesStr += `<g transform="translate(0, ${textOffsetY})">${result.svg}</g>`;
