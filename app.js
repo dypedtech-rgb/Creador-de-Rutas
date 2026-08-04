@@ -1483,7 +1483,7 @@ function renderRichSvgText(segments, x, y, maxWidth, defaults, measureCtx) {
         measureCtx.font = `${fi}${fw} ${fontSize}px ${fontFamily}`;
         const ww = measureCtx.measureText(w.text).width * SAFETY;
         const isSpc = /^\s+$/.test(w.text);
-        if (!isSpc && lw + ww > maxWidth && lines[lines.length - 1].length > 0) {
+        if (!isSpc && lw + ww > maxWidth + 10 && lines[lines.length - 1].length > 0) {
             const cl = lines[lines.length - 1];
             while (cl.length && /^\s+$/.test(cl[cl.length - 1].text)) cl.pop();
             lines.push([]);
